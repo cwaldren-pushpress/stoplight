@@ -230,8 +230,15 @@ enum AgentLauncher {
     /// Write a small launcher script and hand it to the terminal. Sidesteps per-terminal quoting rules and,
     /// for Terminal/iTerm, the AppleScript automation prompt.
     private static func launcherScript(command: String, directory: String) throws -> URL {
-        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Stoplight/launch")
+        // No spaces anywhere in this path: Ghostty hands --command through `bash -c` unquoted.
+        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".stoplight/launch")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        // Keep the folder tidy: anything older than a day goes.
+        if let old = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey]) {
+            for f in old where ((try? f.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .now) < Date.now.addingTimeInterval(-86_400) {
+                try? FileManager.default.removeItem(at: f)
+            }
+        }
         let file = dir.appendingPathComponent("fix-\(Int(Date.now.timeIntervalSince1970)).command")
         let body = """
         #!/bin/zsh
