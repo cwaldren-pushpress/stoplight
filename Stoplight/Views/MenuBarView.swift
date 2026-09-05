@@ -430,6 +430,20 @@ struct PRRow: View {
                         .help("\(pr.baseRefName) is \(bs == .failure ? "red" : bs == .pending ? "running" : "green") right now")
                     }
                     if let note = pr.note { tag(note, color: .secondary) }
+                    if let st = model.agentStatus[pr.id] {
+                        // Agent status from hooks / callbacks (US-034). Click to dismiss.
+                        Button { model.clearAgentStatus(prID: pr.id) } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "sparkles").font(.caption2)
+                                Text(st.state == "attention" ? "needs you" : st.state == "done" ? "agent done" : "agent working").font(.caption2)
+                            }
+                            .foregroundStyle(st.state == "attention" ? Color.orange : st.state == "done" ? .green : .secondary)
+                            .padding(.horizontal, 4).padding(.vertical, 1)
+                            .background(.quaternary, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Reported by your agent \(st.at.compactAgo) ago. Click to dismiss.")
+                    }
                     if pr.status == .closed { tag("Closed", color: .red) }
                     if let q = pr.mergeQueue {
                         tag(q.isBlocked ? "Queue: blocked" : "Queue #\(q.position)", color: q.isBlocked ? .red : .blue)

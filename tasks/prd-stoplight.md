@@ -387,6 +387,16 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 - [ ] Available on open PRs (not branch rows) when an agent and a clone are configured
 - [ ] Same worktree + terminal plumbing as Fix, with a separate editable "Review prompt" in Settings → Agent; default asks for severity-ordered findings with file:line and no code changes
 
+### US-034: Agent callbacks
+**Description:** As a user, I want Stoplight to tell me when the agent I launched needs me or is finished.
+
+**Acceptance Criteria:**
+- [ ] `stoplight://agent/<working|attention|done>/<PR id>` updates a per-PR agent badge (sparkles + "agent working" / "needs you" in orange / "agent done" in green); click dismisses
+- [ ] "attention" and "done" post notifications; attention is time-sensitive with sound
+- [ ] Claude Code: a `.claude/settings.local.json` is written into the worktree with Stop → done and Notification → attention hooks (and excluded from git); the user's global config is untouched
+- [ ] Other agents: the prompt ends with the two `open stoplight://…` commands to run when they need input or finish
+- [ ] Launching sets the badge to "agent working"
+
 ## Functional Requirements
 
 - FR-1: The app runs as a menu bar accessory only (`LSUIElement = true`), no Dock icon, no main window

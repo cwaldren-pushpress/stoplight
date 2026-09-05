@@ -84,18 +84,17 @@ enum AgentLauncher {
 
     // MARK: Detection
 
-    /// Which agent binaries a login shell can see. Cached per launch.
-    private(set) static var installedAgents: Set<Agent> = []
-    static func detectAgents() async {
-        let names = Agent.allCases.compactMap(\.binary)
-        // `; true` so a missing last binary doesn't make the whole script exit non-zero.
-        let out = (try? await shell("for b in \(names.joined(separator: " ")); do command -v $b >/dev/null 2>&1 && echo FOUND:$b; done; true")) ?? ""
-        // Interactive shells may prepend terminal-integration escape codes on the first line; look past them.
-        let found = Set(out.split(separator: "\n").compactMap { line -> String? in
-            guard let r = line.range(of: "FOUND:") else { return nil }
-            return String(line[r.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
-        })
-        installedAgents = Set(Agent.allCases.filter { $0 == .custom || found.contains($0.binary ?? "") })
+    /// Which agent binaries exist. Deterministic: look for the file in every dir on the login PATH plus the
+    /// usual tool folders, instead of trusting an interactive shell to behave in a non-tty.
+    static func detectAgents() async -> Set<Agent> {
+        let loginPath = (try? await shell("echo $PATH")) ?? ""
+        let dirs = (extraPath + ":" + loginPath).split(separator: ":").map(String.init)
+        var found = Set<Agent>([.custom])
+        for a in Agent.allCases {
+            guard let bin = a.binary else { continue }
+            if dirs.contains(where: { FileManager.default.isExecutableFile(atPath: "\($0)/\(bin)") }) { found.insert(a) }
+        }
+        return found
     }
 
     // MARK: Repos
@@ -214,13 +213,47 @@ enum AgentLauncher {
             .replacingOccurrences(of: "{description}", with: pr.summary)
     }
 
+    /// The URL an agent (or a hook) opens to ping Stoplight about this PR (US-034).
+    static func callbackURL(_ state: String, pr: PullRequest) -> String { "stoplight://agent/\(state)/\(pr.id)" }
+
+    /// Claude Code runs shell hooks on events; wire Stop and Notification (permission prompt / waiting for
+    /// input) to ping Stoplight. Written per worktree so nothing leaks into the user's real config.
+    static func installClaudeHooks(in worktree: String, pr: PullRequest) throws {
+        let dir = (worktree as NSString).appendingPathComponent(".claude")
+        try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        let file = (dir as NSString).appendingPathComponent("settings.local.json")
+        var root: [String: Any] = [:]
+        if let data = FileManager.default.contents(atPath: file),
+           let existing = try? JSONSerialization.jsonObject(with: data) as? [String: Any] { root = existing }
+        var hooks = root["hooks"] as? [String: Any] ?? [:]
+        func entry(_ url: String) -> [[String: Any]] {
+            [["hooks": [["type": "command", "command": "open \(shq(url))"]]]]
+        }
+        hooks["Stop"] = entry(callbackURL("done", pr: pr))
+        hooks["Notification"] = entry(callbackURL("attention", pr: pr))
+        root["hooks"] = hooks
+        let out = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
+        try out.write(to: URL(fileURLWithPath: file))
+        // Keep it out of the user's diff.
+        let exclude = (worktree as NSString).appendingPathComponent(".git/info/exclude")
+        if FileManager.default.fileExists(atPath: exclude),
+           let cur = try? String(contentsOfFile: exclude, encoding: .utf8), !cur.contains(".claude/settings.local.json") {
+            try? (cur + "\n.claude/settings.local.json\n").write(toFile: exclude, atomically: true, encoding: .utf8)
+        }
+    }
+
     /// Worktree → terminal → agent. `runAgent == false` just opens the terminal in the worktree.
     static func fix(_ pr: PullRequest, config: Config, runAgent: Bool, task: Job = .fix) async throws {
         let path = try await worktree(for: pr, config: config)
         var command = "cd \(shq(path))"
         if runAgent {
             let template = task == .review ? config.reviewTemplate : config.promptTemplate
-            let p = prompt(for: pr, template: template)
+            var p = prompt(for: pr, template: template)
+            if config.agent == .claude {
+                try? installClaudeHooks(in: path, pr: pr)   // best effort; the agent still runs without it
+            } else {
+                p += "\n\nWhen you need my input, run: open '\(callbackURL("attention", pr: pr))'. When you're done, run: open '\(callbackURL("done", pr: pr))'."
+            }
             command += " && " + config.agent.command(prompt: shq(p), custom: config.customCommand)
         }
         try await openTerminal(config.terminal, command: command, directory: path)

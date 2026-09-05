@@ -530,10 +530,25 @@ final class AppModel {
                                     promptTemplate: prefs.promptTemplate, reviewTemplate: prefs.reviewTemplate, repoPaths: prefs.repoPaths)
     }
     var agentTitle: String { AgentLauncher.Agent(rawValue: prefs.agent)?.title ?? "agent" }
+    /// Observable so the Settings picker relabels when detection finishes.
+    private(set) var installedAgents: Set<AgentLauncher.Agent> = []
+    func detectAgents() async { installedAgents = await AgentLauncher.detectAgents() }
     func canFix(_ pr: PullRequest) -> Bool {
         agentConfig != nil && prefs.repoPaths[pr.repo.lowercased()] != nil && !pr.headRefName.isEmpty
     }
     private(set) var agentError: String?
+
+    /// What each launched agent last reported (US-034). Session-only.
+    struct AgentStatus: Equatable { let state: String; let at: Date }   // "working" | "attention" | "done"
+    private(set) var agentStatus: [String: AgentStatus] = [:]
+    func agentReported(_ state: String, prID: String) {
+        agentStatus[prID] = AgentStatus(state: state, at: .now)
+        if state == "attention" || state == "done", let pr = (all + mergedRows).first(where: { $0.id == prID }) {
+            let kind: CIEvent.Kind = state == "attention" ? .agentAttention : .agentDone
+            Task { await notifier.post(CIEvent(pr: pr, kind: kind, detail: agentTitle)) }
+        }
+    }
+    func clearAgentStatus(prID: String) { agentStatus[prID] = nil }
 
     /// One button: worktree + terminal + agent with the failure as the prompt.
     func fix(_ pr: PullRequest, runAgent: Bool) { launch(pr, runAgent: runAgent, task: .fix) }
@@ -543,9 +558,10 @@ final class AppModel {
     private func launch(_ pr: PullRequest, runAgent: Bool, task: AgentLauncher.Job) {
         guard let config = agentConfig else { agentError = AgentLauncher.Err.noAgent.localizedDescription; return }
         agentError = nil
+        if runAgent { agentStatus[pr.id] = AgentStatus(state: "working", at: .now) }
         Task {
             do { try await AgentLauncher.fix(pr, config: config, runAgent: runAgent, task: task) }
-            catch { agentError = error.localizedDescription }
+            catch { agentError = error.localizedDescription; agentStatus[pr.id] = nil }
         }
     }
 

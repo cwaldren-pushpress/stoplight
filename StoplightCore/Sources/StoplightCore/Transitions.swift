@@ -8,7 +8,7 @@ public enum NotificationMode: String, Codable, Sendable {
 
 /// Something worth telling the user about (US-006).
 public struct CIEvent: Equatable, Sendable, Identifiable {
-    public enum Kind: String, Sendable { case failed, passed, dequeued, deployFailed, deployed, branchMoved }
+    public enum Kind: String, Sendable { case failed, passed, dequeued, deployFailed, deployed, branchMoved, agentAttention, agentDone }
 
     public let pr: PullRequest
     public let kind: Kind
@@ -21,7 +21,14 @@ public struct CIEvent: Equatable, Sendable, Identifiable {
     public var key: String { "\(pr.id)|\(pr.headSha)|\(kind.rawValue)" }
     public var id: String { key }
 
-    public var title: String { kind == .branchMoved ? "New release branch in \(pr.repo)" : pr.shortRef }
+    public var title: String {
+        switch kind {
+        case .branchMoved: "New release branch in \(pr.repo)"
+        case .agentAttention: "Agent needs you · \(pr.shortRef)"
+        case .agentDone: "Agent done · \(pr.shortRef)"
+        default: pr.shortRef
+        }
+    }
     public var body: String {
         switch kind {
         case .failed:
@@ -38,6 +45,10 @@ public struct CIEvent: Equatable, Sendable, Identifiable {
             return "\(pr.title)\nMerged and green"
         case .branchMoved:
             return "Now following \(pr.headRefName)" + (detail.map { " (was \($0))" } ?? "")
+        case .agentAttention:
+            return "\(detail ?? "Your agent") needs your input on \(pr.title)"
+        case .agentDone:
+            return "\(detail ?? "Your agent") finished on \(pr.title)"
         }
     }
     public var url: URL { pr.url }

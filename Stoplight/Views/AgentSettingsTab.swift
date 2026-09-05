@@ -14,7 +14,7 @@ struct AgentSettingsTab: View {
                 Picker("Fix failures with", selection: $prefs.agent) {
                     Text("Off").tag("")
                     ForEach(AgentLauncher.Agent.allCases) { a in
-                        let installed = AgentLauncher.installedAgents.contains(a)
+                        let installed = model.installedAgents.contains(a)
                         Text(installed || a == .custom ? a.title : "\(a.title) (not found)").tag(a.rawValue)
                             .selectionDisabled(!installed && a != .custom)
                     }
@@ -81,7 +81,7 @@ struct AgentSettingsTab: View {
             }
         }
         .formStyle(.grouped)
-        .task { if !detected { await AgentLauncher.detectAgents(); detected = true } }
+        .task { if !detected { await model.detectAgents(); detected = true } }
     }
 
     private func scan() {

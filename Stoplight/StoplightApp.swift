@@ -29,10 +29,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls where url.scheme == "stoplight" {
             let model = AppModel.shared
-            if url.host == "pr", let id = url.pathComponents.dropFirst().first {
+            let parts = url.pathComponents.dropFirst()
+            if url.host == "pr", let id = parts.first {
                 model.reveal(prID: id)
+                model.openPanel?()
+            } else if url.host == "agent", parts.count >= 2 {
+                // stoplight://agent/<working|attention|done>/<PR id>  (from Claude Code hooks or the agent itself)
+                model.agentReported(parts[parts.startIndex], prID: parts[parts.startIndex + 1])
+            } else {
+                model.openPanel?()
             }
-            model.openPanel?()
         }
     }
 }
