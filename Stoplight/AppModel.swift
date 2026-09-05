@@ -100,9 +100,9 @@ final class AppModel {
     var visibleRowIDs: [String] {
         sections.flatMap { sec in isCollapsed(sec.id) ? [] : Stacks.layout(sec.prs).map(\.id) }
     }
-    /// Collapse is suspended while a search is active so matches are never hidden.
+    /// Collapse is suspended while a search or a status filter is active, so matches are never hidden.
     func isCollapsed(_ sectionID: String) -> Bool {
-        searchText.trimmingCharacters(in: .whitespaces).isEmpty && prefs.collapsedSections.contains(sectionID)
+        searchText.trimmingCharacters(in: .whitespaces).isEmpty && statusFilter.isEmpty && prefs.collapsedSections.contains(sectionID)
     }
     var selectedPR: PullRequest? {
         guard let id = selectedID else { return nil }

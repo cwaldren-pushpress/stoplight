@@ -375,7 +375,7 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 **Acceptance Criteria:**
 - [ ] ⌘L or the footer magnifier opens a search field under the handle. GitHub-style: bare words match title/nickname/repo/branch; `author:` (login, display name, label), `repo:`, `branch:`, `is:` (red yellow green draft merged queued mine branch), `#n`; all terms AND
 - [ ] Completion chips under the field: the four prefixes when idle, matching values from the loaded PRs once a prefix is typed; click inserts
-- [ ] Collapsed sections show their matches while a search is active
+- [ ] Collapsed sections show their matches while a search or a footer status filter is active
 - [ ] Esc clears the text, a second Esc closes the field; closing the panel resets search
 - [ ] Empty result reads “No PRs match “query””
 
