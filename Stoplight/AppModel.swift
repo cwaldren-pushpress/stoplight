@@ -1,7 +1,10 @@
 import AppKit
 import Foundation
+import OSLog
 import Observation
 import StoplightCore
+
+private let log = Logger(subsystem: "com.timwheeler.stoplight", category: "Model")
 
 @MainActor
 @Observable
@@ -303,6 +306,7 @@ final class AppModel {
 
     func start() {
         guard loop == nil else { return }
+        server.statusProvider = { [weak self] in self?.statusReport ?? [:] }
         server.start()
         loop = Task { [weak self] in
             await self?.signIn()
@@ -313,6 +317,29 @@ final class AppModel {
                 try? await Task.sleep(for: .seconds(interval))
             }
         }
+    }
+
+    /// What /status.json returns. No secrets.
+    var statusReport: [String: Any] {
+        let authText: String = switch auth {
+        case .unknown: "unknown"
+        case .signedOut: "signedOut"
+        case .signedIn(let l, let src): "signedIn(\(l), \(src.rawValue))"
+        case .failed(let m): "failed(\(m))"
+        }
+        let f = ISO8601DateFormatter()
+        return [
+            "version": updater.currentVersion,
+            "auth": authText,
+            "lastRefresh": lastRefresh.map(f.string) ?? "never",
+            "lastError": lastError ?? "",
+            "isRefreshing": isRefreshing,
+            "counts": ["mine": mine.count, "watched": watched.count, "followed": followed.reduce(0) { $0 + $1.prs.count },
+                       "inbound": inbound.reduce(0) { $0 + $1.prs.count }, "branches": branches.count, "merged": merged.count, "all": all.count],
+            "queries": ["follow": prefs.followQueries.count, "branches": prefs.sources.followBranches, "mergedDays": prefs.mergedDays],
+            "agent": ["configured": prefs.agent, "installed": installedAgents.map(\.rawValue).sorted(), "repos": prefs.repoPaths.count],
+            "rateLimitRemaining": GitHubProvider.lastRateLimit?.remaining ?? -1,
+        ]
     }
 
     /// US-003 adaptive polling.
@@ -327,6 +354,7 @@ final class AppModel {
 
     func signIn() async {
         guard let found = TokenSource.resolve() else {
+            log.error("sign-in: no token from gh or Keychain")
             auth = .signedOut
             provider = nil
             return
@@ -338,6 +366,7 @@ final class AppModel {
             self.login = login
             auth = .signedIn(login: login, source: found.kind)
         } catch {
+            log.error("sign-in failed: \(String(describing: error), privacy: .public)")
             provider = nil
             auth = .failed(error.localizedDescription)
         }
@@ -359,7 +388,6 @@ final class AppModel {
         branches = []
         inbound = []
         auth = .signedOut
-        SharedStore.clear()
         server.update(Data("{}".utf8))
         WidgetBridge.reload()
     }
@@ -433,6 +461,7 @@ final class AppModel {
             await resolveDisplayNames(provider)
         } catch {
             // Keep last good data on screen; surface the error as "stale" (US-002).
+            log.error("refresh failed: \(String(describing: error), privacy: .public)")
             lastError = error.localizedDescription
             if case GitHubProvider.Error.unauthorized = error {
                 auth = .failed("Token rejected")
@@ -492,7 +521,6 @@ final class AppModel {
         let prs = (all + mergedRows).filter { seen.insert($0.id).inserted }
         guard let data = try? SharedStore.encode(prs, pinnedIDs: Array(prefs.pinned), sections: secs) else { return }
         server.update(data)
-        SharedStore.save(data)
         WidgetBridge.reload()
     }
 

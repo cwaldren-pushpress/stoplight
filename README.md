@@ -28,6 +28,16 @@ Core logic tests:
 cd StoplightCore && swift test
 ```
 
+## Diagnostics
+
+While the app runs:
+
+```bash
+curl -s http://127.0.0.1:47391/status.json
+```
+
+Auth state, last error, per-source counts, agent config. No secrets.
+
 ## Layout
 
 - `Stoplight/` — menu bar app (SwiftUI `MenuBarExtra`)

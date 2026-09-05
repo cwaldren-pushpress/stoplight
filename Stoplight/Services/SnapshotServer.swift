@@ -18,6 +18,9 @@ final class SnapshotServer {
     private var listener: NWListener?
     private var body = Data("{}".utf8)
 
+    /// Diagnostics: GET /status.json. Set by the model.
+    var statusProvider: (() -> [String: Any])?
+
     func start() {
         guard listener == nil else { return }
         do {
@@ -30,8 +33,15 @@ final class SnapshotServer {
             l.newConnectionHandler = { [weak self] conn in
                 conn.start(queue: .main)
                 // Read whatever the request is, answer with the snapshot, close. Both callbacks run on .main.
-                conn.receive(minimumIncompleteLength: 1, maximumLength: 8192) { [weak self] _, _, _, _ in
-                    let body = MainActor.assumeIsolated { self?.body }
+                conn.receive(minimumIncompleteLength: 1, maximumLength: 8192) { [weak self] data, _, _, _ in
+                    let request = data.map { String(decoding: $0, as: UTF8.self) } ?? ""
+                    let body: Data? = MainActor.assumeIsolated {
+                        guard let self else { return nil }
+                        if request.hasPrefix("GET /status.json"), let status = self.statusProvider?() {
+                            return try? JSONSerialization.data(withJSONObject: status, options: [.prettyPrinted, .sortedKeys])
+                        }
+                        return self.body
+                    }
                     guard let body else { conn.cancel(); return }
                     let head = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: \(body.count)\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n"
                     conn.send(content: Data(head.utf8) + body, completion: .contentProcessed { _ in conn.cancel() })
