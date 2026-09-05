@@ -87,10 +87,14 @@ enum AgentLauncher {
     /// Which agent binaries a login shell can see. Cached per launch.
     private(set) static var installedAgents: Set<Agent> = []
     static func detectAgents() async {
-        let names = Agent.allCases.compactMap(\.binary).joined(separator: " ")
+        let names = Agent.allCases.compactMap(\.binary)
         // `; true` so a missing last binary doesn't make the whole script exit non-zero.
-        let out = (try? await shell("for b in \(names); do command -v $b >/dev/null 2>&1 && echo $b; done; true")) ?? ""
-        let found = Set(out.split(separator: "\n").map(String.init))
+        let out = (try? await shell("for b in \(names.joined(separator: " ")); do command -v $b >/dev/null 2>&1 && echo FOUND:$b; done; true")) ?? ""
+        // Interactive shells may prepend terminal-integration escape codes on the first line; look past them.
+        let found = Set(out.split(separator: "\n").compactMap { line -> String? in
+            guard let r = line.range(of: "FOUND:") else { return nil }
+            return String(line[r.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        })
         installedAgents = Set(Agent.allCases.filter { $0 == .custom || found.contains($0.binary ?? "") })
     }
 
@@ -210,29 +214,40 @@ enum AgentLauncher {
         log.notice("launched \(config.agent.rawValue, privacy: .public) in \(path, privacy: .public)")
     }
 
+    /// Write a small launcher script and hand it to the terminal. Sidesteps per-terminal quoting rules and,
+    /// for Terminal/iTerm, the AppleScript automation prompt.
+    private static func launcherScript(command: String, directory: String) throws -> URL {
+        let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Stoplight/launch")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir.appendingPathComponent("fix-\(Int(Date.now.timeIntervalSince1970)).command")
+        let body = """
+        #!/bin/zsh
+        export PATH="\(extraPath):$PATH"
+        cd \(shq(directory))
+        clear
+        \(command)
+        exec /bin/zsh -il
+        """
+        try body.write(to: file, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
+        return file
+    }
+
     private static func openTerminal(_ t: Terminal, command: String, directory: String) async throws {
+        // Only the agent command goes in the script; `cd` is handled there too.
+        let agentOnly = command.replacingOccurrences(of: "cd \(shq(directory)) && ", with: "").replacingOccurrences(of: "cd \(shq(directory))", with: "")
+        let script = try launcherScript(command: agentOnly, directory: directory)
         switch t {
         case .terminal:
-            try await appleScript("""
-            tell application "Terminal"
-              activate
-              do script \(asq(command))
-            end tell
-            """)
+            _ = try await shell("open -a Terminal \(shq(script.path))")
         case .iterm:
-            try await appleScript("""
-            tell application "iTerm"
-              activate
-              set w to (create window with default profile)
-              tell current session of w to write text \(asq(command))
-            end tell
-            """)
+            _ = try await shell("open -a iTerm \(shq(script.path))")
         case .ghostty:
-            _ = try await shell("open -na Ghostty --args --working-directory=\(shq(directory)) -e /bin/zsh -lc \(shq(command + "; exec /bin/zsh -l"))")
+            _ = try await shell("open -na Ghostty --args --working-directory=\(shq(directory)) --command=\(shq(script.path))")
         case .warp:
             // Warp has no scriptable "run this": open the folder and put the command on the clipboard.
             NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(command, forType: .string)
+            NSPasteboard.general.setString(agentOnly, forType: .string)
             _ = try await shell("open -a Warp \(shq(directory))")
         }
     }
@@ -241,13 +256,26 @@ enum AgentLauncher {
 
     struct ShellError: Error { let output: String }
 
-    /// Runs under a login zsh so the user's PATH (Homebrew, npm globals, ~/.local/bin) applies.
+    /// Common install dirs that may only be on PATH via .zshrc; prepended so detection and launch see them.
+    nonisolated static var extraPath: String {
+        let home = NSHomeDirectory()
+        var dirs = ["\(home)/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "\(home)/.npm-global/bin", "\(home)/.bun/bin", "\(home)/.cargo/bin", "\(home)/.claude/local"]
+        if let versions = try? FileManager.default.contentsOfDirectory(atPath: "\(home)/.nvm/versions/node") {
+            dirs += versions.sorted().reversed().map { "\(home)/.nvm/versions/node/\($0)/bin" }
+        }
+        return dirs.joined(separator: ":")
+    }
+
+    /// Runs under an interactive login zsh (so .zprofile AND .zshrc apply) with common tool dirs prepended.
     @discardableResult
     static func shell(_ script: String) async throws -> String {
         try await Task.detached {
             let p = Process()
             p.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            p.arguments = ["-lc", script]
+            p.arguments = ["-ilc", "export PATH=\"\(extraPath):$PATH\"; " + script]
+            var env = ProcessInfo.processInfo.environment
+            env["TERM"] = "dumb"   // keep prompt frameworks quiet in a non-tty shell
+            p.environment = env
             let out = Pipe(); p.standardOutput = out; p.standardError = out
             try p.run()
             let data = out.fileHandleForReading.readDataToEndOfFile()
@@ -258,15 +286,6 @@ enum AgentLauncher {
         }.value
     }
 
-    private static func appleScript(_ source: String) async throws {
-        do { _ = try await shell("osascript -e \(shq(source))") }
-        catch let e as ShellError { throw Err.terminal(e.output) }
-    }
-
     /// Single-quote for POSIX shells.
     static func shq(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
-    /// Double-quote for AppleScript string literals.
-    private static func asq(_ s: String) -> String {
-        "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
-    }
 }
