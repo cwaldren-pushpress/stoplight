@@ -379,6 +379,14 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 - [ ] Esc clears the text, a second Esc closes the field; closing the panel resets search
 - [ ] Empty result reads “No PRs match “query””
 
+### US-033: Adversarial review button
+**Description:** As a user, I want one click to have my agent tear a PR apart before I merge it.
+
+**Acceptance Criteria:**
+- [ ] Row action "Adversarial review with your agent" (on by default, configurable like the others); ⇧⌘F; right-click item
+- [ ] Available on open PRs (not branch rows) when an agent and a clone are configured
+- [ ] Same worktree + terminal plumbing as Fix, with a separate editable "Review prompt" in Settings → Agent; default asks for severity-ordered findings with file:line and no code changes
+
 ## Functional Requirements
 
 - FR-1: The app runs as a menu bar accessory only (`LSUIElement = true`), no Dock icon, no main window

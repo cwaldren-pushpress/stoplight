@@ -32,16 +32,28 @@ struct AgentSettingsTab: View {
                 Text("One click on a red PR: Stoplight checks out the branch in a new worktree, opens your terminal there, and starts the agent with the failure as its prompt. On a red followed branch (main is broken), it forks a fresh fix branch off it and asks the agent to open a PR. Your main checkout is never touched.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section("Prompt") {
+            Section("Fix prompt") {
                 TextEditor(text: $prefs.promptTemplate)
                     .font(.system(.callout, design: .monospaced))
                     .frame(minHeight: 96)
                     .scrollContentBackground(.hidden)
                 HStack {
-                    Text("{number} {title} {repo} {branch} {sha} {url} {failing_checks} {check_urls} {description}")
+                    Text("{number} {title} {repo} {branch} {base} {sha} {url} {failing_checks} {check_urls} {description}")
                         .font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
                     Spacer()
                     Button("Reset") { prefs.promptTemplate = AgentLauncher.defaultPrompt }.controlSize(.small)
+                }
+            }
+            Section("Review prompt") {
+                TextEditor(text: $prefs.reviewTemplate)
+                    .font(.system(.callout, design: .monospaced))
+                    .frame(minHeight: 96)
+                    .scrollContentBackground(.hidden)
+                HStack {
+                    Text("Used by the Adversarial review button (⇧⌘F). Same placeholders.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Reset") { prefs.reviewTemplate = AgentLauncher.defaultReviewPrompt }.controlSize(.small)
                 }
             }
             Section("Repos") {

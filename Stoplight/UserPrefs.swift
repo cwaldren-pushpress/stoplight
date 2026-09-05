@@ -98,6 +98,7 @@ final class UserPrefs {
         static let agentCustom = "agentCustomCommand"
         static let terminal = "terminal"
         static let promptTemplate = "agentPrompt"
+        static let reviewTemplate = "agentReviewPrompt"
         static let scanRoot = "repoScanRoot"
         static let repoPaths = "repoPaths"
     }
@@ -117,6 +118,7 @@ final class UserPrefs {
     var agentCustomCommand: String { didSet { defaults.set(agentCustomCommand, forKey: Key.agentCustom) } }
     var terminal: String { didSet { defaults.set(terminal, forKey: Key.terminal) } }
     var promptTemplate: String { didSet { defaults.set(promptTemplate, forKey: Key.promptTemplate) } }
+    var reviewTemplate: String { didSet { defaults.set(reviewTemplate, forKey: Key.reviewTemplate) } }
     var scanRoot: String { didSet { defaults.set(scanRoot, forKey: Key.scanRoot) } }
     /// "owner/name" (lowercased) → local clone path.
     var repoPaths: [String: String] { didSet { defaults.set(repoPaths, forKey: Key.repoPaths) } }
@@ -168,6 +170,7 @@ final class UserPrefs {
         agentCustomCommand = defaults.string(forKey: Key.agentCustom) ?? "my-agent {prompt}"
         terminal = defaults.string(forKey: Key.terminal) ?? "terminal"
         promptTemplate = defaults.string(forKey: Key.promptTemplate) ?? AgentLauncher.defaultPrompt
+        reviewTemplate = defaults.string(forKey: Key.reviewTemplate) ?? AgentLauncher.defaultReviewPrompt
         scanRoot = defaults.string(forKey: Key.scanRoot) ?? (NSHomeDirectory() + "/dev")
         repoPaths = (defaults.dictionary(forKey: Key.repoPaths) as? [String: String]) ?? [:]
 

@@ -4,10 +4,10 @@ import StoplightCore
 
 /// The circular buttons in an expanded row (US-031). Users pick which appear and in what order.
 enum RowAction: String, CaseIterable, Identifiable, Codable {
-    case open, run, checks, copyURL, share, copyBranch, copyHash, pin, fix
+    case open, run, checks, copyURL, share, copyBranch, copyHash, pin, fix, review
     var id: String { rawValue }
 
-    static let defaultOrder: [RowAction] = [.open, .run, .copyURL, .share, .copyHash, .pin, .fix]
+    static let defaultOrder: [RowAction] = [.open, .run, .copyURL, .share, .copyHash, .pin, .fix, .review]
 
     var title: String {
         switch self {
@@ -20,6 +20,7 @@ enum RowAction: String, CaseIterable, Identifiable, Codable {
         case .copyHash: "Copy commit hash"
         case .pin: "Pin"
         case .fix: "Fix with your agent"
+        case .review: "Adversarial review with your agent"
         }
     }
 
@@ -34,6 +35,7 @@ enum RowAction: String, CaseIterable, Identifiable, Codable {
         case .copyHash: "number"
         case .pin: "pin"
         case .fix: "sparkles"
+        case .review: "eye.trianglebadge.exclamationmark"
         }
     }
 
@@ -47,6 +49,7 @@ enum RowAction: String, CaseIterable, Identifiable, Codable {
         case .copyBranch: !pr.headRefName.isEmpty
         case .copyHash: !pr.headSha.isEmpty
         case .fix: pr.state == .failure && model.canFix(pr)
+        case .review: model.canFix(pr) && !pr.isBranch && pr.status == .open
         }
     }
 }

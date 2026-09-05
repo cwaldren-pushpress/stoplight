@@ -587,6 +587,9 @@ struct PRRow: View {
             case .fix: RowButton(symbol: a.symbol, help: pr.isBranch ? "Fix \(pr.headRefName) with \(model.agentTitle) on a new branch off it" : "Fix with \(model.agentTitle): worktree, terminal, agent", tint: nil) {
                 model.fix(pr, runAgent: true)
             }
+            case .review: RowButton(symbol: a.symbol, help: "Adversarial review with \(model.agentTitle) (⇧⌘F)", tint: nil) {
+                model.review(pr)
+            }
             }
         }
     }
@@ -639,6 +642,10 @@ struct PRRow: View {
             Divider()
             Button(pr.isBranch ? "Fix \(pr.headRefName) with \(model.agentTitle) (new branch)" : "Fix with \(model.agentTitle)") { model.fix(pr, runAgent: true) }
                 .disabled(!model.canFix(pr))
+            if !pr.isBranch && pr.status == .open {
+                Button("Adversarial review with \(model.agentTitle)") { model.review(pr) }
+                    .disabled(!model.canFix(pr))
+            }
             Button("Open worktree in terminal") { model.fix(pr, runAgent: false) }
                 .disabled(!model.canFix(pr))
         }

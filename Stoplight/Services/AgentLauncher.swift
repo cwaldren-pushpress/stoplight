@@ -144,8 +144,19 @@ enum AgentLauncher {
         let customCommand: String
         let terminal: Terminal
         let promptTemplate: String
+        let reviewTemplate: String
         let repoPaths: [String: String]
     }
+
+    /// What the agent is asked to do in the worktree (US-033). (Not `Task`: that shadows Swift concurrency.)
+    enum Job { case fix, review }
+
+    static let defaultReviewPrompt = """
+    Adversarially review PR #{number} "{title}" in {repo} (branch {branch} into {base}).
+    Description: {description}
+    Assume the author is competent and something is still wrong. Hunt for bugs, unhandled edge cases, race conditions, security issues, missing or weak tests, and misleading names or comments. Run the test suite and any linters.
+    Report findings as a numbered list ordered by severity, each with file:line and a one-sentence failure scenario. Do not change code unless I ask.
+    """
 
     /// The branch the agent works on. PRs: the PR's own branch. Branch rows (main is red): a fresh
     /// fix branch off that branch, since nobody should push straight to main.
@@ -192,6 +203,7 @@ enum AgentLauncher {
         let template = pr.isBranch ? branchPrompt : template
         return template
             .replacingOccurrences(of: "{sha}", with: String(pr.headSha.prefix(7)))
+            .replacingOccurrences(of: "{base}", with: pr.baseRefName.isEmpty ? "the base branch" : pr.baseRefName)
             .replacingOccurrences(of: "{number}", with: String(pr.number))
             .replacingOccurrences(of: "{title}", with: pr.title)
             .replacingOccurrences(of: "{repo}", with: pr.repo)
@@ -202,16 +214,17 @@ enum AgentLauncher {
             .replacingOccurrences(of: "{description}", with: pr.summary)
     }
 
-    /// Worktree → terminal → agent. `agent == false` just opens the terminal in the worktree.
-    static func fix(_ pr: PullRequest, config: Config, runAgent: Bool) async throws {
+    /// Worktree → terminal → agent. `runAgent == false` just opens the terminal in the worktree.
+    static func fix(_ pr: PullRequest, config: Config, runAgent: Bool, task: Job = .fix) async throws {
         let path = try await worktree(for: pr, config: config)
         var command = "cd \(shq(path))"
         if runAgent {
-            let p = prompt(for: pr, template: config.promptTemplate)
+            let template = task == .review ? config.reviewTemplate : config.promptTemplate
+            let p = prompt(for: pr, template: template)
             command += " && " + config.agent.command(prompt: shq(p), custom: config.customCommand)
         }
         try await openTerminal(config.terminal, command: command, directory: path)
-        log.notice("launched \(config.agent.rawValue, privacy: .public) in \(path, privacy: .public)")
+        log.notice("launched \(config.agent.rawValue, privacy: .public) (\(String(describing: task), privacy: .public)) in \(path, privacy: .public)")
     }
 
     /// Write a small launcher script and hand it to the terminal. Sidesteps per-terminal quoting rules and,

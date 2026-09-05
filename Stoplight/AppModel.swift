@@ -154,6 +154,7 @@ final class AppModel {
         case .copyHash: if let pr = selectedPR { PRActions.copyHash(pr) } else { return false }
         case .pin: if let pr = selectedPR { togglePin(pr) } else { return false }
         case .fix: if let pr = selectedPR, canFix(pr) { fix(pr, runAgent: true) } else { return false }
+        case .review: if let pr = selectedPR, canFix(pr), !pr.isBranch { review(pr) } else { return false }
         case .hide: if let pr = selectedPR { hide(pr: pr) } else { return false }
         case .checks:
             guard let pr = selectedPR, !pr.checks.isEmpty else { return false }
@@ -526,7 +527,7 @@ final class AppModel {
         guard let agent = AgentLauncher.Agent(rawValue: prefs.agent),
               let terminal = AgentLauncher.Terminal(rawValue: prefs.terminal) else { return nil }
         return AgentLauncher.Config(agent: agent, customCommand: prefs.agentCustomCommand, terminal: terminal,
-                                    promptTemplate: prefs.promptTemplate, repoPaths: prefs.repoPaths)
+                                    promptTemplate: prefs.promptTemplate, reviewTemplate: prefs.reviewTemplate, repoPaths: prefs.repoPaths)
     }
     var agentTitle: String { AgentLauncher.Agent(rawValue: prefs.agent)?.title ?? "agent" }
     func canFix(_ pr: PullRequest) -> Bool {
@@ -535,11 +536,15 @@ final class AppModel {
     private(set) var agentError: String?
 
     /// One button: worktree + terminal + agent with the failure as the prompt.
-    func fix(_ pr: PullRequest, runAgent: Bool) {
+    func fix(_ pr: PullRequest, runAgent: Bool) { launch(pr, runAgent: runAgent, task: .fix) }
+    /// Same plumbing, adversarial-review prompt (US-033).
+    func review(_ pr: PullRequest) { launch(pr, runAgent: true, task: .review) }
+
+    private func launch(_ pr: PullRequest, runAgent: Bool, task: AgentLauncher.Job) {
         guard let config = agentConfig else { agentError = AgentLauncher.Err.noAgent.localizedDescription; return }
         agentError = nil
         Task {
-            do { try await AgentLauncher.fix(pr, config: config, runAgent: runAgent) }
+            do { try await AgentLauncher.fix(pr, config: config, runAgent: runAgent, task: task) }
             catch { agentError = error.localizedDescription }
         }
     }
