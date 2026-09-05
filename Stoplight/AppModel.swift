@@ -308,6 +308,7 @@ final class AppModel {
         guard loop == nil else { return }
         server.statusProvider = { [weak self] in self?.statusReport ?? [:] }
         server.start()
+        Task { await detectAgents() }   // so Settings → Agent is right the first time it opens
         loop = Task { [weak self] in
             await self?.signIn()
             while !Task.isCancelled {
