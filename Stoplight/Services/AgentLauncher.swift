@@ -143,10 +143,17 @@ enum AgentLauncher {
         let repoPaths: [String: String]
     }
 
+    /// The branch the agent works on. PRs: the PR's own branch. Branch rows (main is red): a fresh
+    /// fix branch off that branch, since nobody should push straight to main.
+    static func workBranch(for pr: PullRequest) -> String {
+        pr.isBranch ? "fix/\(pr.headRefName.replacingOccurrences(of: "/", with: "-"))-ci-\(pr.headSha.prefix(7))" : pr.headRefName
+    }
+
     /// Create or reuse the worktree. Returns its path.
     static func worktree(for pr: PullRequest, config: Config) async throws -> String {
         guard let clone = config.repoPaths[pr.repo.lowercased()] else { throw Err.noRepo(pr.repo) }
-        let branch = pr.headRefName
+        let branch = workBranch(for: pr)
+        let base = pr.headRefName   // for a PR this is the same branch; for a branch row it's the branch to fork from
         let safe = branch.replacingOccurrences(of: "/", with: "-")
         let repoName = (clone as NSString).lastPathComponent
         let path = ((clone as NSString).deletingLastPathComponent as NSString).appendingPathComponent("\(repoName)-\(safe)")
@@ -155,20 +162,32 @@ enum AgentLauncher {
         let script = """
         set -e
         cd \(q(clone))
-        git fetch origin \(q(branch))
+        git fetch origin \(q(base))
         if git show-ref --verify --quiet refs/heads/\(q(branch)); then
           git worktree add \(q(path)) \(q(branch))
-        else
+        elif git show-ref --verify --quiet refs/remotes/origin/\(q(branch)); then
           git worktree add --track -b \(q(branch)) \(q(path)) origin/\(q(branch))
+        else
+          git worktree add -b \(q(branch)) \(q(path)) origin/\(q(base))
         fi
         """
         do { _ = try await shell(script) } catch let e as ShellError { throw Err.git(e.output) }
         return path
     }
 
+    /// Branch rows don't have a PR to describe, so they get their own prompt.
+    static let branchPrompt = """
+    CI failed on {repo} branch {branch} at commit {sha} ("{title}").
+    Failing checks: {failing_checks}
+    Logs: {check_urls}
+    You are on a fresh branch off {branch}. Find the root cause, fix it, run the relevant tests locally, then open a PR against {branch}.
+    """
+
     static func prompt(for pr: PullRequest, template: String) -> String {
         let failing = pr.failingChecks
+        let template = pr.isBranch ? branchPrompt : template
         return template
+            .replacingOccurrences(of: "{sha}", with: String(pr.headSha.prefix(7)))
             .replacingOccurrences(of: "{number}", with: String(pr.number))
             .replacingOccurrences(of: "{title}", with: pr.title)
             .replacingOccurrences(of: "{repo}", with: pr.repo)

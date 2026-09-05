@@ -345,7 +345,8 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 - [ ] Settings → Sources → Follow → Branches accepts `owner/repo@branch`
 - [ ] Each followed branch is one row in a "Branches" section: dot = state of the newest commit that ran checks, title = that commit's message, click opens the commit, run-summary button when it's Actions
 - [ ] Branch rows count toward the dots and widget and notify like open PRs (red → "failed", pending → green → "passed")
-- [ ] Right-click → Stop following; no Fix, Follow-author, or Hide-PR on branch rows
+- [ ] Right-click → Stop following; no Follow-author or Hide-PR on branch rows
+- [ ] Fix on a red branch row forks `fix/<branch>-ci-<sha7>` off the branch in a worktree and prompts the agent to fix and open a PR against it
 
 ### US-030: Branch patterns
 **Description:** As a user on a release-branch workflow (rc/090526-1, rc/090526-2, …), I want to follow "the current RC" without renaming anything.

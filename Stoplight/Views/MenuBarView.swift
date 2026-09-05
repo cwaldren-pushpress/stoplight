@@ -531,7 +531,7 @@ struct PRRow: View {
             case .pin: RowButton(symbol: pinned ? "pin.fill" : "pin", help: pinned ? "Unpin" : "Pin", tint: pinned ? .primary : nil) {
                 withAnimation(Self.motion) { model.togglePin(pr) }
             }
-            case .fix: RowButton(symbol: a.symbol, help: "Fix with \(model.agentTitle): worktree, terminal, agent", tint: nil) {
+            case .fix: RowButton(symbol: a.symbol, help: pr.isBranch ? "Fix \(pr.headRefName) with \(model.agentTitle) on a new branch off it" : "Fix with \(model.agentTitle): worktree, terminal, agent", tint: nil) {
                 model.fix(pr, runAgent: true)
             }
             }
@@ -582,9 +582,9 @@ struct PRRow: View {
         if pr.mergeQueue != nil, let q = URL(string: "https://github.com/\(pr.repo)/queue/\(pr.baseRefName)") {
             Button("Open merge queue") { openURL(q) }
         }
-        if !pr.headRefName.isEmpty && model.agentConfig != nil && !pr.isBranch {
+        if !pr.headRefName.isEmpty && model.agentConfig != nil {
             Divider()
-            Button("Fix with \(model.agentTitle)") { model.fix(pr, runAgent: true) }
+            Button(pr.isBranch ? "Fix \(pr.headRefName) with \(model.agentTitle) (new branch)" : "Fix with \(model.agentTitle)") { model.fix(pr, runAgent: true) }
                 .disabled(!model.canFix(pr))
             Button("Open worktree in terminal") { model.fix(pr, runAgent: false) }
                 .disabled(!model.canFix(pr))
