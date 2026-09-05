@@ -147,7 +147,14 @@ public struct GitHubProvider: CIProvider {
         req.setValue("Stoplight/0.1", forHTTPHeaderField: "User-Agent")
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, resp) = try await session.data(for: req)
+        // A stale keep-alive connection surfaces as "network connection was lost" on the first request after idle.
+        // One immediate retry clears it.
+        var result: (Data, URLResponse)
+        do { result = try await session.data(for: req) }
+        catch let e as URLError where e.code == .networkConnectionLost || e.code == .cannotConnectToHost {
+            result = try await session.data(for: req)
+        }
+        let (data, resp) = result
         guard let http = resp as? HTTPURLResponse else { throw Error.http(-1) }
         if let rem = http.value(forHTTPHeaderField: "x-ratelimit-remaining").flatMap(Int.init) {
             let reset = http.value(forHTTPHeaderField: "x-ratelimit-reset")

@@ -344,6 +344,7 @@ final class AppModel {
 
     /// US-003 adaptive polling.
     private var nextInterval: TimeInterval {
+        if lastError != nil { return 15 }   // a failed fetch retries soon, never "5 minutes because the list looks empty"
         if let rl = GitHubProvider.lastRateLimit, rl.remaining < 100 { return 300 }
         if all.isEmpty { return 300 }
         if all.contains(where: { $0.state == .pending }) { return 20 }
