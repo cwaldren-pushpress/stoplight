@@ -368,6 +368,15 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 - [ ] A button hides itself on rows where it doesn't apply
 - [ ] Copy commit hash copies the full head SHA; ⇧⌘B; also in the right-click menu with the short hash shown
 
+### US-032: Search
+**Description:** As a user with many PRs, I want to type a few letters and see only the matching rows.
+
+**Acceptance Criteria:**
+- [ ] ⌘L or the footer magnifier opens a search field under the handle; typing filters rows across all sections by title, nickname, repo, branch, author, or #number; space-separated words all must match
+- [ ] Collapsed sections show their matches while a search is active
+- [ ] Esc clears the text, a second Esc closes the field; closing the panel resets search
+- [ ] Empty result reads “No PRs match “query””
+
 ## Functional Requirements
 
 - FR-1: The app runs as a menu bar accessory only (`LSUIElement = true`), no Dock icon, no main window

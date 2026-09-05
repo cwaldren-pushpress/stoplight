@@ -22,6 +22,10 @@ struct MenuBarView: View {
                 .frame(maxWidth: .infinity, minHeight: 14)
                 .overlay(DragHandle())
                 .help("Drag to move")
+            if model.isSearching {
+                SearchField(model: model)
+                Divider()
+            }
             ZStack {
                 content
                 if showTour {
@@ -40,7 +44,7 @@ struct MenuBarView: View {
             Divider()
             footer
         }
-        .onChange(of: model.panelVisible) { _, visible in if !visible { showWatchField = false } }
+        .onChange(of: model.panelVisible) { _, visible in if !visible { showWatchField = false; model.isSearching = false; model.searchText = "" } }
     }
 
     @ViewBuilder
@@ -61,8 +65,8 @@ struct MenuBarView: View {
                 centered("Loading…")
             } else if model.isEmpty {
                 centered("No open PRs")
-            } else if rowCount == 0 && !model.statusFilter.isEmpty {
-                centered("No PRs match the filter")
+            } else if rowCount == 0 && (!model.statusFilter.isEmpty || !model.searchText.isEmpty) {
+                centered(model.searchText.isEmpty ? "No PRs match the filter" : "No PRs match “\(model.searchText)”")
             } else {
                 // The panel has a user-chosen size; the list fills it and scrolls. Headers carry 8pt of their own; 4 more makes 12, matching the sides.
                 ScrollViewReader { proxy in
@@ -81,7 +85,7 @@ struct MenuBarView: View {
     }
 
     private var rowCount: Int {
-        model.sections.reduce(0) { $0 + (model.prefs.collapsedSections.contains($1.id) ? 0 : $1.prs.count) }
+        model.sections.reduce(0) { $0 + (model.isCollapsed($1.id) ? 0 : $1.prs.count) }
     }
 
     private var list: some View {
@@ -98,7 +102,7 @@ struct MenuBarView: View {
     @ViewBuilder
     private func section(_ sec: AppModel.Section, showHeader: Bool) -> some View {
         if !sec.prs.isEmpty {
-            let collapsed = showHeader && model.prefs.collapsedSections.contains(sec.id)
+            let collapsed = showHeader && model.isCollapsed(sec.id)
             if showHeader {
                 SectionHeader(id: sec.id, title: sec.title, prs: sec.prs, collapsed: collapsed,
                               toggle: { model.prefs.toggleCollapsed(sec.id) },
@@ -189,6 +193,11 @@ struct MenuBarView: View {
                 .disabled(model.updater.state == .downloading || model.updater.state == .installing)
                 .help("Download, verify, and relaunch")
             }
+            Button { model.isSearching.toggle(); if !model.isSearching { model.searchText = "" } } label: {
+                Image(systemName: "magnifyingglass").frame(width: 22, height: 22)
+                    .foregroundStyle(model.isSearching || !model.searchText.isEmpty ? Color.accentColor : .secondary)
+            }
+            .help("Search (⌘L)")
             Button { model.pinnedPanel.toggle() } label: {
                 Image(systemName: model.pinnedPanel ? "pin.fill" : "pin").frame(width: 22, height: 22)
                     .foregroundStyle(model.pinnedPanel ? Color.accentColor : .secondary)
@@ -211,6 +220,31 @@ struct MenuBarView: View {
             Button("Quit") { NSApp.terminate(nil) }
                 .keyboardShortcut("q").hidden().frame(width: 0, height: 0)
         }
+    }
+}
+
+/// US-032: type to filter. Esc clears, then closes the field.
+struct SearchField: View {
+    @Bindable var model: AppModel
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField("Search title, repo, branch, author, #number", text: $model.searchText)
+                .textFieldStyle(.plain)
+                .focused($focused)
+                .onExitCommand {
+                    if model.searchText.isEmpty { model.isSearching = false } else { model.searchText = "" }
+                }
+            if !model.searchText.isEmpty {
+                Button { model.searchText = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                    .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .onAppear { focused = true }
+        .onChange(of: model.isSearching) { _, on in if on { focused = true } }
     }
 }
 

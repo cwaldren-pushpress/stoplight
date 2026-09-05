@@ -8,7 +8,7 @@ enum Hotkey: CaseIterable {
     case moveDown, moveUp, open, expand, collapse, close, nextButton, prevButton
     case copyURL, share, copyBranch, copyHash, pin, fix, hide, checks
     case filterRed, filterYellow, filterGreen, clearFilters
-    case toggleSections, refresh, watch, settings, showHotkeys
+    case toggleSections, refresh, watch, settings, showHotkeys, search
 
     struct Combo { let key: String; let symbol: String; let mods: NSEvent.ModifierFlags }
 
@@ -40,6 +40,7 @@ enum Hotkey: CaseIterable {
         case .watch: Combo(key: "n", symbol: "N", mods: [.command])
         case .settings: Combo(key: ",", symbol: ",", mods: [.command])
         case .showHotkeys: Combo(key: "/", symbol: "/", mods: [.command])
+        case .search: Combo(key: "l", symbol: "L", mods: [.command])
         }
     }
 
@@ -71,6 +72,7 @@ enum Hotkey: CaseIterable {
         case .watch: "Watch a PR by URL"
         case .settings: "Settings"
         case .showHotkeys: "Keyboard shortcuts"
+        case .search: "Search PRs (Esc clears)"
         }
     }
 
@@ -89,7 +91,7 @@ enum Hotkey: CaseIterable {
         ("Navigate", [.moveDown, .moveUp, .expand, .nextButton, .prevButton, .collapse, .close]),
         ("Selected PR", [.open, .checks, .copyURL, .share, .copyBranch, .copyHash, .pin, .fix, .hide]),
         ("Filter", [.filterRed, .filterYellow, .filterGreen, .clearFilters]),
-        ("Panel", [.toggleSections, .refresh, .watch, .settings, .showHotkeys]),
+        ("Panel", [.search, .toggleSections, .refresh, .watch, .settings, .showHotkeys]),
     ]
 
     /// Match a key event. Arrow/return/space/escape by key code; letters by character.

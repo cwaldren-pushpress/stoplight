@@ -98,7 +98,11 @@ final class AppModel {
 
     /// Row ids in display order, skipping collapsed sections.
     var visibleRowIDs: [String] {
-        sections.flatMap { sec in prefs.collapsedSections.contains(sec.id) ? [] : Stacks.layout(sec.prs).map(\.id) }
+        sections.flatMap { sec in isCollapsed(sec.id) ? [] : Stacks.layout(sec.prs).map(\.id) }
+    }
+    /// Collapse is suspended while a search is active so matches are never hidden.
+    func isCollapsed(_ sectionID: String) -> Bool {
+        searchText.trimmingCharacters(in: .whitespaces).isEmpty && prefs.collapsedSections.contains(sectionID)
     }
     var selectedPR: PullRequest? {
         guard let id = selectedID else { return nil }
@@ -162,9 +166,20 @@ final class AppModel {
             let ids = sections.map(\.id)
             if prefs.collapsedSections.isSuperset(of: ids) { prefs.collapsedSections = [] } else { prefs.collapsedSections = Set(ids) }
         case .showHotkeys: showHotkeys.toggle()
+        case .search: isSearching = true
         case .toggleGlobal, .close, .refresh, .watch, .settings: return false
         }
         return true
+    }
+
+    /// Text filter (US-032): title, nickname, repo, branch, author, number. Session-only.
+    var searchText = ""
+    var isSearching = false
+    private func matchesSearch(_ pr: PullRequest) -> Bool {
+        let q = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return true }
+        let hay = [pr.title, prefs.alias(for: pr.id) ?? "", pr.repo, pr.headRefName, pr.author, "#\(pr.number)"].joined(separator: " ").lowercased()
+        return q.split(separator: " ").allSatisfy { hay.contains($0) }
     }
 
     /// Popover status filter (US-018). Empty = show everything. Session-only, not persisted.
@@ -217,6 +232,7 @@ final class AppModel {
             let picked = prs.filter { pr in
                 guard allowed.contains(pr.id), !claimed.contains(pr.id) else { return false }
                 guard filter.isEmpty || filter.contains(pr.state) else { return false }
+                guard matchesSearch(pr) else { return false }
                 let isPinned = prefs.pinned.contains(pr.id)
                 return pinnedOnly ? isPinned : (!skipPinned || !isPinned)
             }
@@ -236,7 +252,7 @@ final class AppModel {
         out.append(Section(id: "Branches", title: "Branches", prs: take(branches)))
         // Merged rows aren't in `all` unless they have checks, so filter them directly here.
         let mergedFiltered = mergedRows.filter { pr in
-            !claimed.contains(pr.id) && (filter.isEmpty || filter.contains(pr.state))
+            !claimed.contains(pr.id) && (filter.isEmpty || filter.contains(pr.state)) && matchesSearch(pr)
         }
         out.append(Section(id: "Merged", title: "Merged", prs: mergedFiltered))
         return applyOrder(out).filter { !$0.prs.isEmpty }
