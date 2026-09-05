@@ -243,8 +243,9 @@ struct SearchField: View {
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
-        .onAppear { focused = true }
-        .onChange(of: model.isSearching) { _, on in if on { focused = true } }
+        // Focus after the field is in the hierarchy; the footer button would otherwise keep it.
+        .onAppear { Task { @MainActor in try? await Task.sleep(for: .milliseconds(60)); focused = true } }
+        .onChange(of: model.isSearching) { _, on in if on { Task { @MainActor in try? await Task.sleep(for: .milliseconds(60)); focused = true } } }
     }
 }
 
@@ -394,7 +395,7 @@ struct PRRow: View {
                 HStack(spacing: 6) {
                     Text(section?.refLabel(for: pr) ?? pr.shortRef)
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
-                    if !isMine && !(section?.hidesAuthor ?? false) {
+                    if !isMine && !pr.isBranch && !pr.author.isEmpty && !(section?.hidesAuthor ?? false) {
                         Text("· @\(pr.author)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                     if pr.isDraft { tag("Draft") }
