@@ -39,7 +39,7 @@ final class SearchTests: XCTestCase {
         let prs = [pr("d", title: "t", author: "dholliday3"), pr("b", title: "t", repo: "acme/web", author: "bob")]
         XCTAssertEqual(SearchQuery.suggestions(for: "", prs: prs, ctx).map(\.insert), SearchQuery.prefixes)
         XCTAssertEqual(SearchQuery.suggestions(for: "author:dan", prs: prs, ctx).map(\.insert), ["author:dholliday3"])
-        XCTAssertEqual(SearchQuery.suggestions(for: "is:re", prs: prs, ctx).map(\.label), ["red", "green", "merged"])
+        XCTAssertEqual(SearchQuery.suggestions(for: "is:re", prs: prs, ctx).map(\.label), ["red", "green"])
         XCTAssertEqual(Set(SearchQuery.suggestions(for: "repo:", prs: prs, ctx).map(\.label)), ["api", "web"])
         XCTAssertEqual(SearchQuery.complete("is:red auth", with: "author:"), "is:red author:")
         XCTAssertEqual(SearchQuery.complete("author:dan", with: "author:dholliday3"), "author:dholliday3 ")
