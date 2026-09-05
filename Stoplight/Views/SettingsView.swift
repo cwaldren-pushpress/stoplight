@@ -91,6 +91,7 @@ private struct GeneralTab: View {
                 LegendRow("Based on a branch whose PR isn't in view.") { legendTag("on feat/x", .secondary) }
                 LegendRow("Click a PR to open it on GitHub. Double-click or ⌘-click to expand it: description, failing checks, and buttons for Open, Copy URL, Share, Pin, and Fix with your agent. Right-click for the rest.") { HStack(spacing: 6) { Image(systemName: "arrow.up.right"); Image(systemName: "doc.on.doc"); Image(systemName: "square.and.arrow.up"); Image(systemName: "pin"); Image(systemName: "sparkles") }.font(.caption).foregroundStyle(.secondary) }
                 LegendRow("Footer dots filter the list by status. Click to toggle, combine freely.") { Text("● 3").font(.caption).foregroundStyle(.secondary) }
+                LegendRow("Search (⌘L). Bare words match titles. Prefixes narrow: author:dan  repo:web  branch:fix/  is:red|yellow|green|draft|merged|queued|mine  #439. Chips under the field complete them for you.") { Image(systemName: "magnifyingglass").font(.caption).foregroundStyle(.secondary) }
             }
             Section {
                 HStack {

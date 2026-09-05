@@ -72,7 +72,7 @@ enum Hotkey: CaseIterable {
         case .watch: "Watch a PR by URL"
         case .settings: "Settings"
         case .showHotkeys: "Keyboard shortcuts"
-        case .search: "Search PRs (Esc clears)"
+        case .search: "Search: words, author:, repo:, branch:, is:red, #n"
         }
     }
 

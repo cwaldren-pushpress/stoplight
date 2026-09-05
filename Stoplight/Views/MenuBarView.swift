@@ -118,7 +118,7 @@ struct MenuBarView: View {
                 ForEach(rows) { row in
                     PRRow(pr: row.pr, model: model, section: sec, depth: row.depth,
                           stack: row.stackID.map { Stacks.members(of: $0, in: rows) })
-                    Divider().padding(.leading, 28 + CGFloat(row.depth) * 14)
+                    Divider()
                 }
             }
         }
@@ -229,17 +229,35 @@ struct SearchField: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Search title, repo, branch, author, #number", text: $model.searchText)
-                .textFieldStyle(.plain)
-                .focused($focused)
-                .onExitCommand {
-                    if model.searchText.isEmpty { model.isSearching = false } else { model.searchText = "" }
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Search  ·  author:  repo:  branch:  is:red", text: $model.searchText)
+                    .textFieldStyle(.plain)
+                    .focused($focused)
+                    .onExitCommand {
+                        if model.searchText.isEmpty { model.isSearching = false } else { model.searchText = "" }
+                    }
+                if !model.searchText.isEmpty {
+                    Button { model.searchText = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                        .buttonStyle(.plain)
                 }
-            if !model.searchText.isEmpty {
-                Button { model.searchText = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
-                    .buttonStyle(.plain)
+            }
+            // Completion chips: prefixes when idle, matching values once a prefix is typed. Click to insert.
+            let chips = model.searchSuggestions
+            if !chips.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(chips) { c in
+                            Button { model.searchText = SearchQuery.complete(model.searchText, with: c.insert); focused = true } label: {
+                                Text(c.label).font(.caption).monospaced()
+                                    .padding(.horizontal, 7).padding(.vertical, 3)
+                                    .background(.quaternary, in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)

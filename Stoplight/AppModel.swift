@@ -172,14 +172,21 @@ final class AppModel {
         return true
     }
 
-    /// Text filter (US-032): title, nickname, repo, branch, author, number. Session-only.
+    /// Text filter (US-032), GitHub-style: bare words, author:, repo:, branch:, is:, #n. Session-only.
     var searchText = ""
     var isSearching = false
-    private func matchesSearch(_ pr: PullRequest) -> Bool {
-        let q = searchText.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return true }
-        let hay = [pr.title, prefs.alias(for: pr.id) ?? "", pr.repo, pr.headRefName, pr.author, "#\(pr.number)"].joined(separator: " ").lowercased()
-        return q.split(separator: " ").allSatisfy { hay.contains($0) }
+    private var searchQuery: SearchQuery { SearchQuery(searchText) }
+    var searchContext: SearchQuery.Context {
+        let names = displayNames, labels = prefs.sources.userLabels, aliases = prefs.sources.prAliases
+        return SearchQuery.Context(
+            names: { login in [names[login.lowercased()], labels[login.lowercased()]].compactMap { $0 } },
+            nickname: { aliases[$0] },
+            myLogin: login)
+    }
+    private func matchesSearch(_ pr: PullRequest) -> Bool { searchQuery.matches(pr, searchContext) }
+    /// Completion chips for the search field, drawn from what's currently loaded.
+    var searchSuggestions: [SearchQuery.Suggestion] {
+        SearchQuery.suggestions(for: searchText, prs: all + mergedRows, searchContext)
     }
 
     /// Popover status filter (US-018). Empty = show everything. Session-only, not persisted.

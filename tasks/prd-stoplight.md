@@ -198,6 +198,7 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 
 **Acceptance Criteria:**
 - [ ] A PR whose base branch equals another visible PR's head branch, in the same repo, is rendered directly under it, indented 14pt per level with a ↳ connector
+- [ ] Row dividers span the full panel width
 - [ ] Stacks render bottom-up (closest to trunk first); a stack sorts by its worst state, so a red anywhere in it lifts the whole stack
 - [ ] Right-click any PR in a stack → "Copy stack (N PRs) as Markdown": one line per PR, bottom-up, status emoji, link, title, branch
 - [ ] A PR based on a non-trunk branch whose parent isn't visible shows an "on branch" tag
@@ -372,7 +373,8 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 **Description:** As a user with many PRs, I want to type a few letters and see only the matching rows.
 
 **Acceptance Criteria:**
-- [ ] ⌘L or the footer magnifier opens a search field under the handle; typing filters rows across all sections by title, nickname, repo, branch, author, or #number; space-separated words all must match
+- [ ] ⌘L or the footer magnifier opens a search field under the handle. GitHub-style: bare words match title/nickname/repo/branch; `author:` (login, display name, label), `repo:`, `branch:`, `is:` (red yellow green draft merged queued mine branch), `#n`; all terms AND
+- [ ] Completion chips under the field: the four prefixes when idle, matching values from the loaded PRs once a prefix is typed; click inserts
 - [ ] Collapsed sections show their matches while a search is active
 - [ ] Esc clears the text, a second Esc closes the field; closing the panel resets search
 - [ ] Empty result reads “No PRs match “query””
