@@ -47,6 +47,7 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
     private func observeContent() {
         withObservationTracking {
             _ = model.contentHeight
+            _ = model.chromeHeight
             _ = model.pinnedPanel
         } onChange: { [weak self] in
             Task { @MainActor in
@@ -58,13 +59,10 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// Chrome = everything that isn't the scrolling list (footer, dividers). Measured once the panel exists.
-    private var chromeHeight: CGFloat = 46
-
     private func fitToContent() {
-        guard let panel, panel.isVisible, !panel.inLiveResize, model.contentHeight > 0 else { return }
+        guard let panel, panel.isVisible, !panel.inLiveResize, model.contentHeight > 0, model.chromeHeight > 0 else { return }
         let maxH = savedSize().height
-        let wanted = max(Self.minSize.height, min(maxH, model.contentHeight + chromeHeight))
+        let wanted = max(Self.minSize.height, min(maxH, model.contentHeight + model.chromeHeight))
         guard abs(wanted - panel.frame.height) > 1 else { return }
         fitting = true
         var f = panel.frame

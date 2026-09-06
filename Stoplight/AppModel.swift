@@ -15,6 +15,8 @@ final class AppModel {
     var openPanel: (() -> Void)?
     /// Natural height of the list content, reported by the view so the panel can shrink to fit (US-027).
     var contentHeight: CGFloat = 0
+    /// Everything that isn't the list (top bar, footer, search/watch fields, dividers), measured by the view.
+    var chromeHeight: CGFloat = 0
     /// Pinned: stays open above other windows, ignores click-outside, keeps wherever you dragged it.
     var pinnedPanel = false
     /// Mirrors the panel's visibility so views can reset transient state (open text fields) on close.

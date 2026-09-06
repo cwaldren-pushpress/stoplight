@@ -15,6 +15,11 @@ struct MenuBarView: View {
         return false
     }
 
+    @State private var topHeight: CGFloat = 0
+    @State private var midHeight: CGFloat = 0
+    @State private var footerHeight: CGFloat = 0
+    private func report() { model.chromeHeight = topHeight + midHeight + footerHeight + 2 /* dividers */ }
+
     var body: some View {
         VStack(spacing: 0) {
             // Grab handle: the only place to drag the panel around (US-027). Pin sits top-right: it's a window control.
@@ -23,21 +28,35 @@ struct MenuBarView: View {
                 .frame(maxWidth: .infinity, minHeight: 22)
                 .overlay(DragHandle())
                 .overlay(alignment: .trailing) {
-                    Button { model.pinnedPanel.toggle() } label: {
-                        Image(systemName: model.pinnedPanel ? "pin.fill" : "pin")
-                            .foregroundStyle(model.pinnedPanel ? Color.accentColor : .secondary)
-                            .frame(width: 22, height: 22).contentShape(Rectangle())
+                    HStack(spacing: 4) {
+                        let allCollapsed = !model.sections.isEmpty && model.sections.allSatisfy { model.prefs.collapsedSections.contains($0.id) }
+                        Button { _ = model.handle(.toggleSections) } label: {
+                            Image(systemName: allCollapsed ? "rectangle.expand.vertical" : "rectangle.compress.vertical")
+                                .foregroundStyle(.secondary)
+                                .frame(width: 22, height: 22).contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(allCollapsed ? "Expand all sections (⇧⌘E)" : "Collapse all sections (⇧⌘E)")
+                        Button { model.pinnedPanel.toggle() } label: {
+                            Image(systemName: model.pinnedPanel ? "pin.fill" : "pin")
+                                .foregroundStyle(model.pinnedPanel ? Color.accentColor : .secondary)
+                                .frame(width: 22, height: 22).contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .help(model.pinnedPanel ? "Unpin: close on click outside again" : "Pin: stay open above other windows")
                     }
-                    .buttonStyle(.plain)
                     .padding(.trailing, 6)
-                    .help(model.pinnedPanel ? "Unpin: close on click outside again" : "Pin: stay open above other windows")
                 }
                 .padding(.top, 4).padding(.bottom, 4)
                 .help("Drag to move")
-            if model.isSearching {
-                SearchField(model: model)
-                Divider()
+                .background(GeometryReader { g in Color.clear.onChange(of: g.size.height, initial: true) { _, h in topHeight = h; report() } })
+            VStack(spacing: 0) {
+                if model.isSearching {
+                    SearchField(model: model)
+                    Divider()
+                }
             }
+            .background(GeometryReader { g in Color.clear.onChange(of: g.size.height, initial: true) { _, h in midHeight = h; report() } })
             ZStack {
                 content
                 if showTour {
@@ -49,12 +68,15 @@ struct MenuBarView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if showWatchField {
+            VStack(spacing: 0) {
+                if showWatchField {
+                    Divider()
+                    WatchField(model: model, isPresented: $showWatchField, focused: $watchFieldFocused)
+                }
                 Divider()
-                WatchField(model: model, isPresented: $showWatchField, focused: $watchFieldFocused)
+                footer
             }
-            Divider()
-            footer
+            .background(GeometryReader { g in Color.clear.onChange(of: g.size.height, initial: true) { _, h in footerHeight = h; report() } })
         }
         .onChange(of: model.panelVisible) { _, visible in if !visible { showWatchField = false; model.isSearching = false; model.searchText = "" } }
     }
