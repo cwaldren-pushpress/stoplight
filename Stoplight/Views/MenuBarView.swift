@@ -342,7 +342,7 @@ struct SectionHeader: View {
     let title: String
     let prs: [PullRequest]
     let collapsed: Bool
-    var mode: UserPrefs.SectionCounts = .attention
+    var mode: UserPrefs.SectionCounts = .off
     let toggle: () -> Void
     let drop: (String) -> Void
     @State private var targeted = false

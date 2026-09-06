@@ -47,9 +47,9 @@ private struct GeneralTab: View {
             }
             Section("Sections") {
                 Picker("Collapsed section counts", selection: $prefs.sectionCounts) {
+                    Text("Off").tag(UserPrefs.SectionCounts.off)
                     Text("Only what needs attention").tag(UserPrefs.SectionCounts.attention)
                     Text("Every state").tag(UserPrefs.SectionCounts.full)
-                    Text("Off").tag(UserPrefs.SectionCounts.off)
                 }
                 Text("Attention: red and yellow counts plus a quiet total. The footer always shows the tally across all sections, which is also what lights the menu bar.")
                     .font(.caption).foregroundStyle(.secondary)

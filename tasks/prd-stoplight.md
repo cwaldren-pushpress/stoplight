@@ -169,7 +169,7 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 - [ ] Medium widget lists pinned PRs first, then the rest, still capped at 4
 - [ ] No drag-and-drop. Right-click and the hover glyph are the only affordances (drag in a menu bar popover is fiddly and dismisses easily)
 - [ ] Section headers only appear when the section is non-empty; with nothing pinned or watched the list looks exactly like v1
-- [ ] Collapsed headers show counts per Settings → General → Sections: attention (red + yellow + quiet total, default), every state, or off
+- [ ] Collapsed headers show counts per Settings → General → Sections: off (default), attention (red + yellow + quiet total), or every state
 
 ### US-013: Follow users, repos, orgs
 **Description:** As a user, I want to follow teammates, key repos, or a whole org from Settings, so their open PRs show up grouped, without typing commands.

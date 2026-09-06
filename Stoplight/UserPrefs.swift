@@ -174,7 +174,7 @@ final class UserPrefs {
         sectionOrder = defaults.stringArray(forKey: Key.sectionOrder) ?? []
         tourSeen = defaults.bool(forKey: Key.tourSeen)
         rowActions = (defaults.stringArray(forKey: Key.rowActions)?.compactMap(RowAction.init(rawValue:))) ?? RowAction.defaultOrder
-        sectionCounts = SectionCounts(rawValue: defaults.string(forKey: Key.sectionCounts) ?? "") ?? .attention
+        sectionCounts = SectionCounts(rawValue: defaults.string(forKey: Key.sectionCounts) ?? "") ?? .off
         agent = defaults.string(forKey: Key.agent) ?? ""
         agentCustomCommand = defaults.string(forKey: Key.agentCustom) ?? "my-agent {prompt}"
         terminal = defaults.string(forKey: Key.terminal) ?? "terminal"
