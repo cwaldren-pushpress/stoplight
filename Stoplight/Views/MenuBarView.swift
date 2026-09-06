@@ -17,10 +17,20 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Grab handle: the only place to drag the panel around (US-027). Hit area is the full width.
+            // Grab handle: the only place to drag the panel around (US-027). Pin sits top-right: it's a window control.
             Capsule().fill(.quaternary).frame(width: 36, height: 4)
-                .frame(maxWidth: .infinity, minHeight: 14)
+                .frame(maxWidth: .infinity, minHeight: 16)
                 .overlay(DragHandle())
+                .overlay(alignment: .trailing) {
+                    Button { model.pinnedPanel.toggle() } label: {
+                        Image(systemName: model.pinnedPanel ? "pin.fill" : "pin").font(.caption)
+                            .foregroundStyle(model.pinnedPanel ? Color.accentColor : .secondary)
+                            .frame(width: 22, height: 16).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 6)
+                    .help(model.pinnedPanel ? "Unpin: close on click outside again" : "Pin: stay open above other windows")
+                }
                 .help("Drag to move")
             if model.isSearching {
                 SearchField(model: model)
@@ -198,11 +208,6 @@ struct MenuBarView: View {
                     .foregroundStyle(model.isSearching || !model.searchText.isEmpty ? Color.accentColor : .secondary)
             }
             .help("Search (⌘L)")
-            Button { model.pinnedPanel.toggle() } label: {
-                Image(systemName: model.pinnedPanel ? "pin.fill" : "pin").frame(width: 22, height: 22)
-                    .foregroundStyle(model.pinnedPanel ? Color.accentColor : .secondary)
-            }
-            .help(model.pinnedPanel ? "Unpin: close on click outside again" : "Pin: stay open above other windows")
             Button {
                 showWatchField.toggle()
                 if showWatchField { watchFieldFocused = true }
@@ -385,6 +390,7 @@ struct PRRow: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .clipped()
         .background(selected ? AnyShapeStyle(Color.accentColor.opacity(0.18))
                     : hovering || expanded ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
@@ -546,12 +552,12 @@ struct PRRow: View {
                     .help("Open the checks tab on GitHub")
                 }
             }
-            HStack(spacing: 10) {
+            FlowLayout(spacing: 10, rowSpacing: 8) {
                 ForEach(Array(buttons.enumerated()), id: \.offset) { i, b in
                     circle(b.symbol, help: b.help, tint: b.tint, focused: selected && model.focusedButton == i, action: b.action)
                 }
-                Spacer()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .onAppear { if selected { model.expandedButtonCount = buttons.count } }
             .onChange(of: selected) { _, sel in if sel { model.expandedButtonCount = buttons.count } }
             .onChange(of: model.activateFocused) { _, _ in

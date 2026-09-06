@@ -262,7 +262,7 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 
 **Acceptance Criteria:**
 - [ ] Single click opens the PR on GitHub; double-click or ⌘-click expands the row; one row expanded at a time (accordion)
-- [ ] Expansion shows, top to bottom: real title (if nicknamed), description (2 lines), failing checks as links, then four 32pt circular buttons: Open, Copy URL, Share, Pin
+- [ ] Expansion shows, top to bottom: real title (if nicknamed), description, failing checks as links, then 32pt circular buttons that wrap to a second row when the panel is narrow
 - [ ] Copy and Share flash a checkmark for one second
 - [ ] Motion: a single 200ms snappy curve with no bounce; content fades and slides 8pt from under the header; nothing but row height moves
 - [ ] Hovered or expanded rows get a faint background
@@ -326,7 +326,7 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 **Acceptance Criteria:**
 - [ ] Panel height tracks the list's natural height (collapsed sections shrink it), capped at the height the user last dragged it to; width is always the user's
 - [ ] Drag the centered handle at the top to move the panel (open-hand cursor on hover, closed hand while dragging); the rest of the background is inert; once moved it stays put until closed
-- [ ] Footer pin toggles pinned mode: floating level, no close on click-outside or focus loss, position kept; Esc unpins and closes
+- [ ] Pin button top-right beside the grab handle toggles pinned mode: floating level, no close on click-outside or focus loss, position kept; Esc unpins and closes
 - [ ] Description in an expanded row is capped at 3 lines and never overlaps the buttons
 
 ### US-028: Merged rows show base branch health
