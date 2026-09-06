@@ -141,7 +141,7 @@ struct MenuBarView: View {
         if !sec.prs.isEmpty {
             let collapsed = showHeader && model.isCollapsed(sec.id)
             if showHeader {
-                SectionHeader(id: sec.id, title: sec.title, prs: sec.prs, collapsed: collapsed,
+                SectionHeader(id: sec.id, title: sec.title, prs: sec.prs, collapsed: collapsed, mode: model.prefs.sectionCounts,
                               toggle: { model.prefs.toggleCollapsed(sec.id) },
                               drop: { moving in
                                   withAnimation(.snappy(duration: 0.2, extraBounce: 0)) {
@@ -342,6 +342,7 @@ struct SectionHeader: View {
     let title: String
     let prs: [PullRequest]
     let collapsed: Bool
+    var mode: UserPrefs.SectionCounts = .attention
     let toggle: () -> Void
     let drop: (String) -> Void
     @State private var targeted = false
@@ -353,9 +354,11 @@ struct SectionHeader: View {
                 .rotationEffect(.degrees(collapsed ? -90 : 0))
                 .frame(width: 10)
             Text(title.uppercased()).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-            if collapsed {
-                // One count per state, worst first, zeros omitted. Drafts count under "none".
-                ForEach(CIState.allCases, id: \.self) { state in
+            if collapsed && mode != .off {
+                // Attention: only red and yellow get a dot; everything else folds into a quiet total.
+                // Full: one count per state, worst first, zeros omitted.
+                let states: [CIState] = mode == .full ? CIState.allCases : [.failure, .pending]
+                ForEach(states, id: \.self) { state in
                     let n = prs.filter { $0.effectiveState == state }.count
                     if n > 0 {
                         HStack(spacing: 3) {
@@ -364,6 +367,9 @@ struct SectionHeader: View {
                         }
                         .padding(.leading, 4)
                     }
+                }
+                if mode == .attention {
+                    Text("· \(prs.count)").font(.caption2).foregroundStyle(.tertiary).monospacedDigit().padding(.leading, 2)
                 }
             }
             Spacer()
@@ -756,12 +762,13 @@ struct FilterDot: View {
     }
 
     private var helpText: String {
-        switch state {
-        case .failure: "Failing (click to filter)"
-        case .pending: "Running (click to filter)"
-        case .success: "Passed (click to filter)"
-        case .none: "No checks"
+        let what: String = switch state {
+        case .failure: "failing"
+        case .pending: "running"
+        case .success: "passed"
+        case .none: "no checks"
         }
+        return "\(count) \(what) across every section, the same tally as the menu bar dots. Landed merges aren't counted. Click to filter."
     }
 }
 

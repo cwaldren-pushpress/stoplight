@@ -45,6 +45,15 @@ private struct GeneralTab: View {
                 }
                 .pickerStyle(.radioGroup)
             }
+            Section("Sections") {
+                Picker("Collapsed section counts", selection: $prefs.sectionCounts) {
+                    Text("Only what needs attention").tag(UserPrefs.SectionCounts.attention)
+                    Text("Every state").tag(UserPrefs.SectionCounts.full)
+                    Text("Off").tag(UserPrefs.SectionCounts.off)
+                }
+                Text("Attention: red and yellow counts plus a quiet total. The footer always shows the tally across all sections, which is also what lights the menu bar.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Row buttons") {
                 RowActionsEditor(prefs: prefs)
                 Text("The circles in an expanded PR. Check to show, drag to reorder. Buttons that don't apply to a row (no Actions run, nothing to fix) hide themselves.")

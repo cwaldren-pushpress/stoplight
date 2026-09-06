@@ -94,6 +94,7 @@ final class UserPrefs {
         static let sectionOrder = "sectionOrder"
         static let tourSeen = "tourSeen"
         static let rowActions = "rowActions"
+        static let sectionCounts = "sectionCounts"
         static let agent = "agent"
         static let agentCustom = "agentCustomCommand"
         static let terminal = "terminal"
@@ -122,6 +123,13 @@ final class UserPrefs {
     var scanRoot: String { didSet { defaults.set(scanRoot, forKey: Key.scanRoot) } }
     /// "owner/name" (lowercased) → local clone path.
     var repoPaths: [String: String] { didSet { defaults.set(repoPaths, forKey: Key.repoPaths) } }
+
+    enum SectionCounts: String, CaseIterable, Identifiable {
+        case attention, full, off
+        var id: String { rawValue }
+    }
+    /// What a collapsed header shows next to its title (US-018). Local only.
+    var sectionCounts: SectionCounts { didSet { defaults.set(sectionCounts.rawValue, forKey: Key.sectionCounts) } }
 
     /// Which circular buttons an expanded row shows, in order (US-031). Local only.
     var rowActions: [RowAction] { didSet { defaults.set(rowActions.map(\.rawValue), forKey: Key.rowActions) } }
@@ -166,6 +174,7 @@ final class UserPrefs {
         sectionOrder = defaults.stringArray(forKey: Key.sectionOrder) ?? []
         tourSeen = defaults.bool(forKey: Key.tourSeen)
         rowActions = (defaults.stringArray(forKey: Key.rowActions)?.compactMap(RowAction.init(rawValue:))) ?? RowAction.defaultOrder
+        sectionCounts = SectionCounts(rawValue: defaults.string(forKey: Key.sectionCounts) ?? "") ?? .attention
         agent = defaults.string(forKey: Key.agent) ?? ""
         agentCustomCommand = defaults.string(forKey: Key.agentCustom) ?? "my-agent {prompt}"
         terminal = defaults.string(forKey: Key.terminal) ?? "terminal"
