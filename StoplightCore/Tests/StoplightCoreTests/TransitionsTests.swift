@@ -80,6 +80,9 @@ final class TransitionsTests: XCTestCase {
         XCTAssertFalse(red.withBaseState(.success).isUnresolvedMerge)   // main fixed since: badge green, no alarm
         XCTAssertFalse(pr(state: .success, status: .merged).withBaseState(.failure).isUnresolvedMerge)  // someone else broke main
         XCTAssertEqual(red.withBaseState(.success).state, .failure)   // own history unchanged
+        XCTAssertEqual(red.withBaseState(.success).effectiveState, .none)   // but nothing counts it as red anymore
+        XCTAssertEqual(red.withBaseState(.failure).effectiveState, .failure)
+        XCTAssertEqual(pr(state: .pending).effectiveState, .pending)
     }
 
     func testMergedQueryFormat() {

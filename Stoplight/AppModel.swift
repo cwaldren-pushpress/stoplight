@@ -202,7 +202,7 @@ final class AppModel {
         if statusFilter.contains(state) { statusFilter.remove(state) } else { statusFilter.insert(state) }
     }
     /// Counts per state across everything visible, for the filter buttons.
-    func count(_ state: CIState) -> Int { all.filter { $0.state == state }.count }
+    func count(_ state: CIState) -> Int { all.filter { $0.effectiveState == state }.count }
 
     /// login (lowercased) → display name, for followed users (US-013).
     private(set) var displayNames: [String: String] = [:]
@@ -245,7 +245,7 @@ final class AppModel {
         func take(_ prs: [PullRequest], pinnedOnly: Bool = false, skipPinned: Bool = true) -> [PullRequest] {
             let picked = prs.filter { pr in
                 guard allowed.contains(pr.id), !claimed.contains(pr.id) else { return false }
-                guard filter.isEmpty || filter.contains(pr.state) else { return false }
+                guard filter.isEmpty || filter.contains(pr.effectiveState) else { return false }
                 guard matchesSearch(pr) else { return false }
                 let isPinned = prefs.pinned.contains(pr.id)
                 return pinnedOnly ? isPinned : (!skipPinned || !isPinned)
@@ -266,7 +266,7 @@ final class AppModel {
         out.append(Section(id: "Branches", title: "Branches", prs: take(branches)))
         // Merged rows aren't in `all` unless they have checks, so filter them directly here.
         let mergedFiltered = mergedRows.filter { pr in
-            !claimed.contains(pr.id) && (filter.isEmpty || filter.contains(pr.state)) && matchesSearch(pr)
+            !claimed.contains(pr.id) && (filter.isEmpty || filter.contains(pr.effectiveState)) && matchesSearch(pr)
         }
         out.append(Section(id: "Merged", title: "Merged", prs: mergedFiltered))
         return applyOrder(out).filter { !$0.prs.isEmpty }

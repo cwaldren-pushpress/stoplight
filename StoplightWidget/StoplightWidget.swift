@@ -85,7 +85,7 @@ func stateColor(_ s: CIState) -> Color {
 struct SmallView: View {
     let snapshot: Snapshot
     private var live: [PullRequest] { snapshot.counted.filter { !$0.isDraft } }
-    private func count(_ s: CIState) -> Int { live.filter { $0.state == s }.count }
+    private func count(_ s: CIState) -> Int { live.filter { $0.effectiveState == s }.count }
 
     var body: some View {
         VStack(spacing: 10) {

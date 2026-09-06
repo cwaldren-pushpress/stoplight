@@ -356,7 +356,7 @@ struct SectionHeader: View {
             if collapsed {
                 // One count per state, worst first, zeros omitted. Drafts count under "none".
                 ForEach(CIState.allCases, id: \.self) { state in
-                    let n = prs.filter { $0.state == state }.count
+                    let n = prs.filter { $0.effectiveState == state }.count
                     if n > 0 {
                         HStack(spacing: 3) {
                             StatusDot(state: state)
