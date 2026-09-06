@@ -59,17 +59,28 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
         }
     }
 
+    private var fitScheduled = false
+
+    /// Never resizes synchronously: a frame change triggers SwiftUI layout, which reports new heights, which
+    /// would re-enter here. Coalesce onto the next run-loop turn instead (the crash was a stack overflow here).
     private func fitToContent() {
-        guard let panel, panel.isVisible, !panel.inLiveResize, model.contentHeight > 0, model.chromeHeight > 0 else { return }
-        let maxH = savedSize().height
-        let wanted = max(Self.minSize.height, min(maxH, model.contentHeight + model.chromeHeight))
-        guard abs(wanted - panel.frame.height) > 1 else { return }
-        fitting = true
-        var f = panel.frame
-        f.origin.y += f.height - wanted   // keep the top edge where it is
-        f.size.height = wanted
-        panel.setFrame(f, display: true, animate: true)
-        fitting = false
+        guard !fitScheduled else { return }
+        fitScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.fitScheduled = false
+            guard let panel = self.panel, panel.isVisible, !panel.inLiveResize, !self.fitting,
+                  self.model.contentHeight > 0, self.model.chromeHeight > 0 else { return }
+            let maxH = self.savedSize().height
+            let wanted = max(Self.minSize.height, min(maxH, self.model.contentHeight + self.model.chromeHeight))
+            guard abs(wanted - panel.frame.height) > 1 else { return }
+            self.fitting = true
+            var f = panel.frame
+            f.origin.y += f.height - wanted   // keep the top edge where it is
+            f.size.height = wanted
+            panel.setFrame(f, display: false, animate: false)
+            self.fitting = false
+        }
     }
 
     private func applyPinState() {
@@ -270,7 +281,7 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
         var origin = NSPoint(x: buttonFrame.maxX - size.width, y: buttonFrame.minY - size.height - 6)
         origin.x = max(visible.minX + 8, min(origin.x, visible.maxX - size.width - 8))
         origin.y = max(visible.minY + 8, origin.y)
-        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        panel.setFrame(NSRect(origin: origin, size: size), display: false)
     }
 
     // MARK: Size persistence
@@ -285,8 +296,12 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
         guard let panel else { return }
         // The user's size is the ceiling: width always, height as the max the list may grow to.
         UserDefaults.standard.set(NSStringFromSize(panel.frame.size), forKey: Self.sizeKey)
-        if !userMoved { position(panel) }
-        fitToContent()
+        // Reposition on the next turn, never inside the resize callback (re-entrant layout → stack overflow).
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let panel = self.panel else { return }
+            if !self.userMoved { self.position(panel) }
+            self.fitToContent()
+        }
     }
 
     func windowDidMove(_ notification: Notification) {

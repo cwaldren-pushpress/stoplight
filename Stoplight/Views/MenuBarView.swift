@@ -18,7 +18,10 @@ struct MenuBarView: View {
     @State private var topHeight: CGFloat = 0
     @State private var midHeight: CGFloat = 0
     @State private var footerHeight: CGFloat = 0
-    private func report() { model.chromeHeight = topHeight + midHeight + footerHeight + 2 /* dividers */ }
+    private func report() {
+        let h = topHeight + midHeight + footerHeight + 2 /* dividers */
+        if abs(model.chromeHeight - h) > 0.5 { model.chromeHeight = h }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -49,14 +52,14 @@ struct MenuBarView: View {
                 }
                 .padding(.top, 4).padding(.bottom, 4)
                 .help("Drag to move")
-                .background(GeometryReader { g in Color.clear.onChange(of: g.size.height, initial: true) { _, h in topHeight = h; report() } })
+                .background(GeometryReader { g in Color.clear.onChange(of: g.size.height, initial: true) { _, h in if abs(topHeight - h) > 0.5 { topHeight = h; report() } } })
             VStack(spacing: 0) {
                 if model.isSearching {
                     SearchField(model: model)
                     Divider()
                 }
             }
-            .background(GeometryReader { g in Color.clear.onChange(of: g.size.height, initial: true) { _, h in midHeight = h; report() } })
+            .background(GeometryReader { g in Color.clear.onChange(of: g.size.height, initial: true) { _, h in if abs(midHeight - h) > 0.5 { midHeight = h; report() } } })
             ZStack {
                 content
                 if showTour {
@@ -76,7 +79,7 @@ struct MenuBarView: View {
                 Divider()
                 footer
             }
-            .background(GeometryReader { g in Color.clear.onChange(of: g.size.height, initial: true) { _, h in footerHeight = h; report() } })
+            .background(GeometryReader { g in Color.clear.onChange(of: g.size.height, initial: true) { _, h in if abs(footerHeight - h) > 0.5 { footerHeight = h; report() } } })
         }
         .onChange(of: model.panelVisible) { _, visible in if !visible { showWatchField = false; model.isSearching = false; model.searchText = "" } }
     }
@@ -107,7 +110,7 @@ struct MenuBarView: View {
                     ScrollView {
                         list
                             .background(GeometryReader { g in
-                                Color.clear.onChange(of: g.size.height, initial: true) { _, h in model.contentHeight = h }
+                                Color.clear.onChange(of: g.size.height, initial: true) { _, h in if abs(model.contentHeight - h) > 0.5 { model.contentHeight = h } }
                             })
                     }
                         .onChange(of: model.selectedID) { _, id in

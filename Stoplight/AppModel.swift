@@ -13,6 +13,7 @@ final class AppModel {
 
     /// Set by the status panel controller so views (Settings) can pop the panel open.
     var openPanel: (() -> Void)?
+    private var firstOpenDone = false
     /// Natural height of the list content, reported by the view so the panel can shrink to fit (US-027).
     var contentHeight: CGFloat = 0
     /// Everything that isn't the list (top bar, footer, search/watch fields, dividers), measured by the view.
@@ -462,6 +463,8 @@ final class AppModel {
             publishSnapshot()
             await notify(previous: previous)
             bobIfJustTurnedGreen()
+            // First run: open the panel so the tour (and the list) is seen without hunting for the dots.
+            if !prefs.tourSeen && !firstOpenDone { firstOpenDone = true; openPanel?() }
             await resolveDisplayNames(provider)
         } catch {
             // Keep last good data on screen; surface the error as "stale" (US-002).
