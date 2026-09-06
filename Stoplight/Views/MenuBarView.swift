@@ -413,7 +413,7 @@ struct PRRow: View {
             }
             if pr.status == .merged {
                 // Landed. The branch badge says how the base branch is doing now.
-                Image(systemName: "checkmark.circle.fill").font(.caption).foregroundStyle(.purple).frame(width: 8)
+                Image(systemName: "checkmark.circle.fill").font(.caption).foregroundStyle(Color.githubMerged).frame(width: 8)
             } else {
                 StatusDot(state: pr.state, hollow: pr.isDraft)
             }
@@ -425,7 +425,7 @@ struct PRRow: View {
                         Text("· @\(pr.author)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     }
                     if pr.isDraft { tag("Draft") }
-                    if pr.status == .merged && section?.id != "Merged" { tag("Merged", color: .purple) }
+                    if pr.status == .merged && section?.id != "Merged" { tag("Merged", color: .githubMerged) }
                     if pr.status == .merged, let bs = pr.baseState {
                         // Base branch health: red / yellow / green by its latest CI run.
                         HStack(spacing: 3) {
