@@ -18,19 +18,21 @@ struct MenuBarView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Grab handle: the only place to drag the panel around (US-027). Pin sits top-right: it's a window control.
+            // Same metrics as the footer: 22pt glyph boxes, 4pt vertical padding, 6pt from the right edge.
             Capsule().fill(.quaternary).frame(width: 36, height: 4)
-                .frame(maxWidth: .infinity, minHeight: 16)
+                .frame(maxWidth: .infinity, minHeight: 22)
                 .overlay(DragHandle())
                 .overlay(alignment: .trailing) {
                     Button { model.pinnedPanel.toggle() } label: {
-                        Image(systemName: model.pinnedPanel ? "pin.fill" : "pin").font(.caption)
+                        Image(systemName: model.pinnedPanel ? "pin.fill" : "pin")
                             .foregroundStyle(model.pinnedPanel ? Color.accentColor : .secondary)
-                            .frame(width: 22, height: 16).contentShape(Rectangle())
+                            .frame(width: 22, height: 22).contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .padding(.trailing, 6)
                     .help(model.pinnedPanel ? "Unpin: close on click outside again" : "Pin: stay open above other windows")
                 }
+                .padding(.top, 4).padding(.bottom, 4)
                 .help("Drag to move")
             if model.isSearching {
                 SearchField(model: model)
