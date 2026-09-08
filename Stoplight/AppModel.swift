@@ -469,6 +469,7 @@ final class AppModel {
             publishSnapshot()
             await notify(previous: previous)
             bobIfJustTurnedGreen()
+            reconcileAgentSessions()
             // First run: open the panel so the tour (and the list) is seen without hunting for the dots.
             if !prefs.tourSeen && !firstOpenDone { firstOpenDone = true; openPanel?() }
             await resolveDisplayNames(provider)
@@ -595,6 +596,25 @@ final class AppModel {
         }
     }
     func clearAgentStatus(prID: String) { agentStatus[prID] = nil }
+    /// Is there a terminal open for this PR right now?
+    func hasAgentSession(_ pr: PullRequest) -> Bool { AgentLauncher.session(for: pr.id) != nil }
+    /// Jump to the agent's window and stop the badge nagging (US-038).
+    func focusAgent(_ pr: PullRequest) {
+        guard let s = AgentLauncher.session(for: pr.id) else { clearAgentStatus(prID: pr.id); return }
+        if agentStatus[pr.id]?.state != "working" { agentStatus[pr.id] = AgentStatus(state: "working", at: .now) }
+        Task { await AgentLauncher.focus(s) }
+    }
+
+    /// Badges for windows that are gone shouldn't linger; sessions that outlived a restart should come back.
+    func reconcileAgentSessions() {
+        let live = AgentLauncher.liveSessionKeys()
+        for (id, st) in agentStatus where st.state == "working" && !live.contains(AgentLauncher.sessionKey(id)) {
+            agentStatus[id] = nil
+        }
+        for pr in all + mergedRows where agentStatus[pr.id] == nil && live.contains(AgentLauncher.sessionKey(pr.id)) {
+            agentStatus[pr.id] = AgentStatus(state: "working", at: .now)
+        }
+    }
     /// Any launched agent waiting on the user. Drives the menu bar marker (US-034).
     var agentNeedsAttention: Bool { agentStatus.values.contains { $0.state == "attention" } }
     private var lastLaunch: [String: Date] = [:]
@@ -606,9 +626,10 @@ final class AppModel {
 
     private func launch(_ pr: PullRequest, runAgent: Bool, task: AgentLauncher.Job) {
         guard let config = agentConfig else { agentError = AgentLauncher.Err.noAgent.localizedDescription; return }
-        // Repeat clicks shouldn't stack sessions in the same worktree.
+        // One terminal per PR. A second click focuses the window that's already open (AgentLauncher.fix),
+        // and this covers the gap while the first launch is still starting up.
         if let last = lastLaunch[pr.id], Date.now.timeIntervalSince(last) < 10 {
-            agentError = "\(agentTitle) is already starting for \(pr.shortRef)."
+            focusAgent(pr)
             return
         }
         lastLaunch[pr.id] = .now

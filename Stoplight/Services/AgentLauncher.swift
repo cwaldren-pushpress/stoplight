@@ -249,6 +249,101 @@ enum AgentLauncher {
             .replacingOccurrences(of: "{description}", with: pr.summary)
     }
 
+    // MARK: Sessions (US-038)
+
+    /// One live agent terminal per PR. The launcher script writes its own PID and removes it when the
+    /// window closes, so "is a session running?" survives Stoplight restarts.
+    struct Session: Codable, Sendable {
+        let worktree: String
+        let terminal: String
+        let title: String
+        let startedAt: Date
+    }
+
+    static var sessionDir: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".stoplight/sessions")
+    }
+    /// PR ids contain "/" and "#" for branch rows, so flatten to a filename-safe key.
+    static func sessionKey(_ prID: String) -> String {
+        String(prID.map { $0.isLetter || $0.isNumber ? $0 : "-" })
+    }
+    static func sessionTitle(_ pr: PullRequest) -> String { "Stoplight · \(pr.shortRef)" }
+
+    /// Liveness is the PID, not the file: a window that dies without running its trap still reads as gone.
+    /// Dead files are deleted here so the directory stays clean and PIDs can't be mistaken after reuse.
+    private static func isAlive(_ pidFile: URL) -> Bool {
+        guard let text = try? String(contentsOf: pidFile, encoding: .utf8),
+              let pid = pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)) else { return false }
+        if kill(pid, 0) == 0 || errno == EPERM { return true }
+        try? FileManager.default.removeItem(at: pidFile)
+        try? FileManager.default.removeItem(at: pidFile.deletingPathExtension().appendingPathExtension("json"))
+        return false
+    }
+
+    /// The session for this PR, or nil when there isn't one running.
+    static func session(for prID: String) -> Session? {
+        let key = sessionKey(prID)
+        guard isAlive(sessionDir.appendingPathComponent("\(key).pid")),
+              let data = try? Data(contentsOf: sessionDir.appendingPathComponent("\(key).json")),
+              let s = try? JSONDecoder().decode(Session.self, from: data) else { return nil }
+        return s
+    }
+
+    /// Session keys with a live window, for restoring badges after a restart.
+    static func liveSessionKeys() -> Set<String> {
+        let files = (try? FileManager.default.contentsOfDirectory(at: sessionDir, includingPropertiesForKeys: nil)) ?? []
+        return Set(files.filter { $0.pathExtension == "pid" && isAlive($0) }
+                        .map { $0.deletingPathExtension().lastPathComponent })
+    }
+
+    /// Bring an existing agent window forward. Terminal and iTerm can raise the exact window by title;
+    /// Ghostty and Warp have no scripting API, so those just come to the front.
+    static func focus(_ s: Session) async {
+        let t = Terminal(rawValue: s.terminal) ?? .terminal
+        let title = s.title.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        switch t {
+        case .terminal:
+            await appleScript("""
+            tell application "Terminal"
+              activate
+              repeat with w in windows
+                if name of w contains "\(title)" then
+                  set index of w to 1
+                  return
+                end if
+              end repeat
+            end tell
+            """)
+        case .iterm:
+            await appleScript("""
+            tell application "iTerm"
+              activate
+              repeat with w in windows
+                repeat with tb in tabs of w
+                  repeat with sn in sessions of tb
+                    if name of sn contains "\(title)" then
+                      select w
+                      select tb
+                      return
+                    end if
+                  end repeat
+                end repeat
+              end repeat
+            end tell
+            """)
+        case .ghostty, .warp:
+            _ = try? await shell("open -a \(shq(t.title))")
+        }
+    }
+
+    /// osascript from a file: no quoting games, and it fails quietly if automation isn't permitted.
+    private static func appleScript(_ source: String) async {
+        let f = FileManager.default.temporaryDirectory.appendingPathComponent("stoplight-\(UUID().uuidString).scpt")
+        guard (try? source.write(to: f, atomically: true, encoding: .utf8)) != nil else { return }
+        _ = try? await shell("osascript \(shq(f.path))")
+        try? FileManager.default.removeItem(at: f)
+    }
+
     /// The URL an agent (or a hook) opens to ping Stoplight about this PR (US-034).
     static func callbackURL(_ state: String, pr: PullRequest) -> String { "stoplight://agent/\(state)/\(pr.id)" }
 
@@ -279,7 +374,15 @@ enum AgentLauncher {
     }
 
     /// Worktree → terminal → agent. `runAgent == false` just opens the terminal in the worktree.
-    static func fix(_ pr: PullRequest, config: Config, runAgent: Bool, task: Job = .fix) async throws {
+    /// Returns true when it reused a window instead of opening one.
+    @discardableResult
+    static func fix(_ pr: PullRequest, config: Config, runAgent: Bool, task: Job = .fix) async throws -> Bool {
+        // Idempotent: one terminal per PR. A second click goes to the window that's already open.
+        if let existing = session(for: pr.id) {
+            await focus(existing)
+            log.notice("reused session for \(pr.shortRef, privacy: .public)")
+            return true
+        }
         let path = try await worktree(for: pr, config: config)
         var command = "cd \(shq(path))"
         if runAgent {
@@ -292,13 +395,19 @@ enum AgentLauncher {
             }
             command += " && " + config.agent.command(prompt: shq(p), custom: config.customCommand, args: config.args(for: task))
         }
-        try await openTerminal(config.terminal, command: command, directory: path)
+        let key = sessionKey(pr.id)
+        let title = sessionTitle(pr)
+        try? FileManager.default.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+        let meta = Session(worktree: path, terminal: config.terminal.rawValue, title: title, startedAt: .now)
+        try? JSONEncoder().encode(meta).write(to: sessionDir.appendingPathComponent("\(key).json"))
+        try await openTerminal(config.terminal, command: command, directory: path, title: title, key: key)
         log.notice("launched \(config.agent.rawValue, privacy: .public) (\(String(describing: task), privacy: .public)) in \(path, privacy: .public)")
+        return false
     }
 
     /// Write a small launcher script and hand it to the terminal. Sidesteps per-terminal quoting rules and,
     /// for Terminal/iTerm, the AppleScript automation prompt.
-    private static func launcherScript(command: String, directory: String) throws -> URL {
+    private static func launcherScript(command: String, directory: String, title: String, key: String) throws -> URL {
         // No spaces anywhere in this path: Ghostty hands --command through `bash -c` unquoted.
         let dir = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".stoplight/launch")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -309,23 +418,30 @@ enum AgentLauncher {
             }
         }
         let file = dir.appendingPathComponent("fix-\(Int(Date.now.timeIntervalSince1970)).command")
+        let pidFile = sessionDir.appendingPathComponent("\(key).pid").path
+        // The window's own shell owns the pid file, so closing the window ends the session however it exits.
+        // Not `exec`: the trap has to survive to clean up.
         let body = """
         #!/bin/zsh
         export PATH="\(extraPath):$PATH"
         cd \(shq(directory))
+        printf '\\033]0;%s\\007' \(shq(title))
+        mkdir -p \(shq(sessionDir.path))
+        echo $$ > \(shq(pidFile))
+        trap 'rm -f \(shq(pidFile))' EXIT INT TERM HUP
         clear
         \(command)
-        exec /bin/zsh -il
+        /bin/zsh -il
         """
         try body.write(to: file, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
         return file
     }
 
-    private static func openTerminal(_ t: Terminal, command: String, directory: String) async throws {
+    private static func openTerminal(_ t: Terminal, command: String, directory: String, title: String, key: String) async throws {
         // Only the agent command goes in the script; `cd` is handled there too.
         let agentOnly = command.replacingOccurrences(of: "cd \(shq(directory)) && ", with: "").replacingOccurrences(of: "cd \(shq(directory))", with: "")
-        let script = try launcherScript(command: agentOnly, directory: directory)
+        let script = try launcherScript(command: agentOnly, directory: directory, title: title, key: key)
         switch t {
         case .terminal:
             _ = try await shell("open -a Terminal \(shq(script.path))")

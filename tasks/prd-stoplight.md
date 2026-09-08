@@ -396,7 +396,9 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 - [ ] `stoplight://agent/<working|attention|done>/<PR id>` updates a per-PR agent badge (sparkles + "agent working" / "needs you" in orange / "agent done" in green); click dismisses
 - [ ] "attention" and "done" post notifications; attention is time-sensitive with sound, and the menu bar dots gain a small orange marker while any agent waits
 - [ ] Settings → Agent: separate permission pickers for fixing (default ask) and reviewing (default plan, since review shouldn't edit), plus a free-text Extra arguments field applied to both; all passed to the agent's command
-- [ ] Repeat clicks within 10s don't stack sessions in one worktree
+- [ ] One agent terminal per PR: the launcher records a session (worktree, terminal, title) and the window's shell owns a pid file it deletes on exit, so a second Fix/Review focuses the existing window instead of opening another, even across Stoplight restarts
+- [ ] Clicking the agent badge focuses that window (Terminal and iTerm raise the exact window by title; Ghostty and Warp have no scripting API so the app comes forward); right-click → Dismiss agent status clears the badge
+- [ ] Badges for windows that were closed are pruned on the next poll, and live sessions restore their badge after a restart
 - [ ] Claude Code: a `.claude/settings.local.json` is written into the worktree with Stop → done and Notification → attention hooks (and excluded from git); the user's global config is untouched
 - [ ] Other agents: the prompt ends with the two `open stoplight://…` commands to run when they need input or finish
 - [ ] Launching sets the badge to "agent working"

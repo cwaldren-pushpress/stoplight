@@ -471,7 +471,7 @@ struct PRRow: View {
                     if let note = pr.note { tag(note, color: .secondary) }
                     if let st = model.agentStatus[pr.id] {
                         // Agent status from hooks / callbacks (US-034). Click to dismiss.
-                        Button { model.clearAgentStatus(prID: pr.id) } label: {
+                        Button { model.focusAgent(pr) } label: {
                             HStack(spacing: 3) {
                                 Image(systemName: "sparkles").font(.caption2)
                                 Text(st.state == "attention" ? "needs you" : st.state == "done" ? "agent done" : "agent working").font(.caption2)
@@ -481,7 +481,7 @@ struct PRRow: View {
                             .background(.quaternary, in: Capsule())
                         }
                         .buttonStyle(.plain)
-                        .help("Reported by your agent \(st.at.compactAgo) ago. Click to dismiss.")
+                        .help("Reported by your agent \(st.at.compactAgo) ago. Click to jump to its terminal window; right-click the row to dismiss.")
                     }
                     if pr.status == .closed { tag("Closed", color: .red) }
                     if let q = pr.mergeQueue {
@@ -690,6 +690,11 @@ struct PRRow: View {
         if !pr.checks.isEmpty { Button("Open checks tab") { openURL(pr.checksURL) } }
         if pr.mergeQueue != nil, let q = URL(string: "https://github.com/\(pr.repo)/queue/\(pr.baseRefName)") {
             Button("Open merge queue") { openURL(q) }
+        }
+        if model.agentStatus[pr.id] != nil || model.hasAgentSession(pr) {
+            Divider()
+            Button("Show agent terminal") { model.focusAgent(pr) }
+            Button("Dismiss agent status") { model.clearAgentStatus(prID: pr.id) }
         }
         if model.canRunAgent(pr) {
             Divider()
