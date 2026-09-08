@@ -99,6 +99,8 @@ final class UserPrefs {
         static let sectionCounts = "sectionCounts"
         static let agent = "agent"
         static let agentCustom = "agentCustomCommand"
+        static let agentPermission = "agentPermissionMode"
+        static let agentExtraArgs = "agentExtraArgs"
         static let terminal = "terminal"
         static let promptTemplate = "agentPrompt"
         static let reviewTemplate = "agentReviewPrompt"
@@ -119,6 +121,9 @@ final class UserPrefs {
     // Agent launcher (US-025). Local only.
     var agent: String { didSet { defaults.set(agent, forKey: Key.agent) } }
     var agentCustomCommand: String { didSet { defaults.set(agentCustomCommand, forKey: Key.agentCustom) } }
+    /// Id from the agent's `permissionModes`; "ask" (or an unknown id) means no flag.
+    var agentPermissionMode: String { didSet { defaults.set(agentPermissionMode, forKey: Key.agentPermission) } }
+    var agentExtraArgs: String { didSet { defaults.set(agentExtraArgs, forKey: Key.agentExtraArgs) } }
     var terminal: String { didSet { defaults.set(terminal, forKey: Key.terminal) } }
     var promptTemplate: String { didSet { defaults.set(promptTemplate, forKey: Key.promptTemplate) } }
     var reviewTemplate: String { didSet { defaults.set(reviewTemplate, forKey: Key.reviewTemplate) } }
@@ -192,6 +197,8 @@ final class UserPrefs {
         sectionCounts = SectionCounts(rawValue: defaults.string(forKey: Key.sectionCounts) ?? "") ?? .off
         agent = defaults.string(forKey: Key.agent) ?? ""
         agentCustomCommand = defaults.string(forKey: Key.agentCustom) ?? "my-agent {prompt}"
+        agentPermissionMode = defaults.string(forKey: Key.agentPermission) ?? "ask"
+        agentExtraArgs = defaults.string(forKey: Key.agentExtraArgs) ?? ""
         terminal = defaults.string(forKey: Key.terminal) ?? "terminal"
         promptTemplate = defaults.string(forKey: Key.promptTemplate) ?? AgentLauncher.defaultPrompt
         reviewTemplate = defaults.string(forKey: Key.reviewTemplate) ?? AgentLauncher.defaultReviewPrompt

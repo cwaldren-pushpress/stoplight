@@ -179,7 +179,8 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
     private func observeGlyph() {
         withObservationTracking {
             statusItem.button?.image = StatusGlyph.image(for: model.presence, count: model.badgeCount,
-                                                         pop: model.bob, housing: model.prefs.housing)
+                                                         pop: model.bob, housing: model.prefs.housing,
+                                                         attention: model.agentNeedsAttention)
             statusItem.button?.toolTip = statusItem.button?.image?.accessibilityDescription
         } onChange: { [weak self] in
             Task { @MainActor in self?.observeGlyph() }

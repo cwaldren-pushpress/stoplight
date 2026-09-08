@@ -564,8 +564,11 @@ final class AppModel {
     var agentConfig: AgentLauncher.Config? {
         guard let agent = AgentLauncher.Agent(rawValue: prefs.agent),
               let terminal = AgentLauncher.Terminal(rawValue: prefs.terminal) else { return nil }
+        let permission = agent.permissionModes.first { $0.id == prefs.agentPermissionMode }?.flags ?? ""
+        let args = [permission, prefs.agentExtraArgs].filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.joined(separator: " ")
         return AgentLauncher.Config(agent: agent, customCommand: prefs.agentCustomCommand, terminal: terminal,
-                                    promptTemplate: prefs.promptTemplate, reviewTemplate: prefs.reviewTemplate, repoPaths: prefs.repoPaths)
+                                    promptTemplate: prefs.promptTemplate, reviewTemplate: prefs.reviewTemplate,
+                                    repoPaths: prefs.repoPaths, extraArgs: args)
     }
     var agentTitle: String { AgentLauncher.Agent(rawValue: prefs.agent)?.title ?? "agent" }
     /// Observable so the Settings picker relabels when detection finishes.
@@ -588,6 +591,9 @@ final class AppModel {
         }
     }
     func clearAgentStatus(prID: String) { agentStatus[prID] = nil }
+    /// Any launched agent waiting on the user. Drives the menu bar marker (US-034).
+    var agentNeedsAttention: Bool { agentStatus.values.contains { $0.state == "attention" } }
+    private var lastLaunch: [String: Date] = [:]
 
     /// One button: worktree + terminal + agent with the failure as the prompt.
     func fix(_ pr: PullRequest, runAgent: Bool) { launch(pr, runAgent: runAgent, task: .fix) }
@@ -596,6 +602,12 @@ final class AppModel {
 
     private func launch(_ pr: PullRequest, runAgent: Bool, task: AgentLauncher.Job) {
         guard let config = agentConfig else { agentError = AgentLauncher.Err.noAgent.localizedDescription; return }
+        // Repeat clicks shouldn't stack sessions in the same worktree.
+        if let last = lastLaunch[pr.id], Date.now.timeIntervalSince(last) < 10 {
+            agentError = "\(agentTitle) is already starting for \(pr.shortRef)."
+            return
+        }
+        lastLaunch[pr.id] = .now
         agentError = nil
         if runAgent { agentStatus[pr.id] = AgentStatus(state: "working", at: .now) }
         Task {

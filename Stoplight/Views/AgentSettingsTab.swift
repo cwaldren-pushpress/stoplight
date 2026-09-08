@@ -20,16 +20,23 @@ struct AgentSettingsTab: View {
                     }
                 }
                 if prefs.agent == AgentLauncher.Agent.custom.rawValue {
-                    TextField("Command, use {prompt} for the prompt", text: $prefs.agentCustomCommand)
+                    TextField("Command, use {prompt} and {args}", text: $prefs.agentCustomCommand)
                         .font(.system(.body, design: .monospaced))
                 }
+                if let agent = AgentLauncher.Agent(rawValue: prefs.agent), !agent.permissionModes.isEmpty {
+                    Picker("Permissions", selection: $prefs.agentPermissionMode) {
+                        ForEach(agent.permissionModes, id: \.id) { Text($0.title).tag($0.id) }
+                    }
+                }
+                TextField("Extra arguments (optional)", text: $prefs.agentExtraArgs)
+                    .font(.system(.body, design: .monospaced))
                 Picker("Open in", selection: $prefs.terminal) {
                     ForEach(AgentLauncher.Terminal.allCases) { t in
                         Text(t.isInstalled ? t.title : "\(t.title) (not installed)").tag(t.rawValue)
                             .selectionDisabled(!t.isInstalled)
                     }
                 }
-                Text("Row buttons hand a PR to this agent: Stoplight checks out the branch in a new worktree, opens your terminal there, and starts the agent with a prompt. Fix uses the failure; Adversarial review asks for findings. On a red followed branch (main is broken), Fix forks a fresh branch off it and asks for a PR. Your main checkout is never touched.")
+                Text("Permissions and extra arguments are passed to the agent's command as-is. With anything other than \"Ask every time\", the agent won't stop for approval, so you won't get a \"needs you\" notification.\n\nRow buttons hand a PR to this agent: Stoplight checks out the branch in a new worktree, opens your terminal there, and starts the agent with a prompt. Fix uses the failure; Adversarial review asks for findings. On a red followed branch (main is broken), Fix forks a fresh branch off it and asks for a PR. Your main checkout is never touched.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Fix prompt") {

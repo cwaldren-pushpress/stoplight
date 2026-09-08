@@ -29,14 +29,32 @@ enum AgentLauncher {
             case .custom: nil
             }
         }
-        /// Shell command that starts the agent with a prompt. `{prompt}` is already shell-quoted.
-        func command(prompt: String, custom: String) -> String {
+        /// Shell command that starts the agent with a prompt. `prompt` is already shell-quoted.
+        /// `args` is passed through verbatim (permission mode, model, anything else).
+        func command(prompt: String, custom: String, args: String) -> String {
+            let a = args.trimmingCharacters(in: .whitespaces)
+            let flags = a.isEmpty ? "" : " " + a
             switch self {
-            case .claude: "claude \(prompt)"
-            case .codex: "codex \(prompt)"
-            case .gemini: "gemini -i \(prompt)"
-            case .aider: "aider --message \(prompt)"
-            case .custom: custom.replacingOccurrences(of: "{prompt}", with: prompt)
+            case .claude: return "claude\(flags) \(prompt)"
+            case .codex: return "codex\(flags) \(prompt)"
+            case .gemini: return "gemini\(flags) -i \(prompt)"
+            case .aider: return "aider\(flags) --message \(prompt)"
+            case .custom:
+                return custom.replacingOccurrences(of: "{prompt}", with: prompt)
+                             .replacingOccurrences(of: "{args}", with: a)
+            }
+        }
+
+        /// Permission choices this agent understands. Empty means "no picker, use Extra arguments".
+        var permissionModes: [(id: String, title: String, flags: String)] {
+            switch self {
+            case .claude: [
+                ("ask", "Ask every time", ""),
+                ("acceptEdits", "Auto-accept file edits", "--permission-mode acceptEdits"),
+                ("plan", "Plan only, no changes", "--permission-mode plan"),
+                ("bypass", "Bypass all prompts (dangerous)", "--permission-mode bypassPermissions"),
+            ]
+            default: []
             }
         }
     }
@@ -145,6 +163,8 @@ enum AgentLauncher {
         let promptTemplate: String
         let reviewTemplate: String
         let repoPaths: [String: String]
+        /// Permission flags plus anything the user typed, already joined.
+        let extraArgs: String
     }
 
     /// What the agent is asked to do in the worktree (US-033). (Not `Task`: that shadows Swift concurrency.)
@@ -254,7 +274,7 @@ enum AgentLauncher {
             } else {
                 p += "\n\nWhen you need my input, run: open '\(callbackURL("attention", pr: pr))'. When you're done, run: open '\(callbackURL("done", pr: pr))'."
             }
-            command += " && " + config.agent.command(prompt: shq(p), custom: config.customCommand)
+            command += " && " + config.agent.command(prompt: shq(p), custom: config.customCommand, args: config.extraArgs)
         }
         try await openTerminal(config.terminal, command: command, directory: path)
         log.notice("launched \(config.agent.rawValue, privacy: .public) (\(String(describing: task), privacy: .public)) in \(path, privacy: .public)")
