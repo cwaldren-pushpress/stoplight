@@ -8,7 +8,20 @@ enum TokenSource {
 
     private static let service = "com.timwheeler.stoplight"
     private static let account = "github-token"
-    private static let ghCandidates = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"]
+    private static let ghCandidates = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/opt/local/bin/gh", "/usr/bin/gh"]
+    /// Set in Settings when `gh` lives somewhere unusual (a custom Homebrew prefix, for example).
+    static var customGHPath: String {
+        get { UserDefaults.standard.string(forKey: Prefs.ghPath) ?? "" }
+        set { UserDefaults.standard.set(newValue, forKey: Prefs.ghPath) }
+    }
+    /// Whatever a login shell resolves `gh` to. Filled once at launch, since the app's own PATH is minimal.
+    private(set) nonisolated(unsafe) static var discoveredGHPath: String?
+
+    static func discoverGH() async {
+        guard let out = try? await AgentLauncher.shell("command -v gh || true") else { return }
+        let path = out.split(separator: "\n").map(String.init).last?.trimmingCharacters(in: .whitespaces) ?? ""
+        if !path.isEmpty, FileManager.default.isExecutableFile(atPath: path) { discoveredGHPath = path }
+    }
 
     static func resolve() -> Found? {
         if let t = fromGH() { return Found(token: t, kind: .gh) }
@@ -16,9 +29,17 @@ enum TokenSource {
         return nil
     }
 
+    /// Explicit setting, then whatever a login shell found, then the usual locations, then our own PATH.
     static func ghPath() -> String? {
+        let custom = customGHPath.trimmingCharacters(in: .whitespaces)
+        if !custom.isEmpty {
+            // Accept a directory as well as the binary itself.
+            let file = custom.hasSuffix("/gh") ? custom : (custom as NSString).appendingPathComponent("gh")
+            if FileManager.default.isExecutableFile(atPath: file) { return file }
+            if FileManager.default.isExecutableFile(atPath: custom) { return custom }
+        }
+        if let d = discoveredGHPath, FileManager.default.isExecutableFile(atPath: d) { return d }
         for p in ghCandidates where FileManager.default.isExecutableFile(atPath: p) { return p }
-        // Fall back to PATH (only useful when launched from a shell).
         for dir in (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":") {
             let p = "\(dir)/gh"
             if FileManager.default.isExecutableFile(atPath: p) { return p }

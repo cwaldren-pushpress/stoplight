@@ -335,6 +335,7 @@ final class AppModel {
         return [
             "version": updater.currentVersion,
             "auth": authText,
+            "ghPath": TokenSource.ghPath() ?? "not found",
             "lastRefresh": lastRefresh.map(f.string) ?? "never",
             "lastError": lastError ?? "",
             "isRefreshing": isRefreshing,
@@ -361,8 +362,10 @@ final class AppModel {
     // MARK: Auth (US-001)
 
     func signIn() async {
+        // The app's own PATH is minimal, so ask a login shell where `gh` is before giving up on it.
+        if TokenSource.discoveredGHPath == nil { await TokenSource.discoverGH() }
         guard let found = TokenSource.resolve() else {
-            log.error("sign-in: no token from gh or Keychain")
+            log.error("sign-in: no token from gh (\(TokenSource.ghPath() ?? "not found", privacy: .public)) or Keychain")
             auth = .signedOut
             provider = nil
             return
@@ -693,6 +696,7 @@ final class AppModel {
 
 enum Prefs {
     static let showCount = "showCountInMenuBar"
+    static let ghPath = "ghPath"
     static let housing = "menuBarHousing"
     static let notifications = "notificationMode"  // all | failOnly | off
 }

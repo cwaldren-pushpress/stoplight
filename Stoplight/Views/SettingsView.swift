@@ -33,9 +33,16 @@ private struct GeneralTab: View {
                     LabeledContent("Signed in as", value: "@\(login)")
                     LabeledContent("Source", value: source.rawValue)
                     Button("Sign out") { model.signOut() }
+                case .failed(let msg):
+                    Text(msg).foregroundStyle(.red)
                 default:
                     Text("Not signed in").foregroundStyle(.secondary)
                 }
+                TextField("GitHub CLI path", text: $prefs.ghPath, prompt: Text(TokenSource.ghPath() ?? "gh not found"))
+                    .font(.system(.body, design: .monospaced))
+                    .onSubmit { Task { await model.signIn(); await model.refresh() } }
+                Text("Leave empty to find gh automatically. Set it when gh lives somewhere unusual, like /opt/zerobrew/bin/gh. Press Return to sign in again.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Notifications") {
                 Picker("Notify me", selection: $notifications) {

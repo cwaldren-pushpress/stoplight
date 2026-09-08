@@ -88,6 +88,7 @@ final class UserPrefs {
         static let pinned = "pinnedIDs"
         static let all = [sources, watched, pinned]
         static let showCount = Prefs.showCount
+        static let ghPath = Prefs.ghPath
         static let housing = Prefs.housing
         static let collapsed = "collapsedSections"
         static let mergedDays = "mergedDays"
@@ -113,6 +114,9 @@ final class UserPrefs {
     var sources: Sources { didSet { persistJSON(Key.sources, sources) } }
     var watched: [PRRef] { didSet { persist(Key.watched, watched.map(\.key)) } }
     var pinned: Set<String> { didSet { persist(Key.pinned, Array(pinned).sorted()) } }
+
+    /// Where `gh` lives, when it isn't somewhere obvious. Empty means "find it automatically".
+    var ghPath: String { didSet { defaults.set(ghPath, forKey: Key.ghPath) } }
 
     // Menu bar look. Local only, not synced.
     var showCount: Bool { didSet { defaults.set(showCount, forKey: Key.showCount) } }
@@ -177,6 +181,7 @@ final class UserPrefs {
         sources = src
         watched = load(Key.watched).compactMap(PRRef.init(key:))
         pinned = Set(load(Key.pinned))
+        ghPath = defaults.string(forKey: Key.ghPath) ?? ""
         showCount = defaults.bool(forKey: Key.showCount)
         housing = defaults.bool(forKey: Key.housing)
         // Merged starts collapsed: a one-line count until you ask for it.

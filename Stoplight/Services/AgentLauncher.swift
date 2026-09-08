@@ -431,7 +431,7 @@ enum AgentLauncher {
         trap 'rm -f \(shq(pidFile))' EXIT INT TERM HUP
         clear
         \(command)
-        /bin/zsh -il
+        \(shq(loginShell.path)) -l
         """
         try body.write(to: file, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
@@ -471,16 +471,32 @@ enum AgentLauncher {
         return dirs.joined(separator: ":")
     }
 
-    /// Runs under an interactive login zsh (so .zprofile AND .zshrc apply) with common tool dirs prepended.
+    /// The account's real login shell, with the flags that make it read the user's config.
+    /// zsh and bash need `-i` for .zshrc/.bashrc; fish reads config.fish on `-l` and rejects `-i` here.
+    nonisolated static var loginShell: (path: String, args: [String]) {
+        var path = "/bin/zsh"
+        if let pw = getpwuid(getuid())?.pointee.pw_shell { path = String(cString: pw) }
+        if !FileManager.default.isExecutableFile(atPath: path) { path = "/bin/zsh" }
+        switch (path as NSString).lastPathComponent {
+        case "zsh", "bash", "ksh": return (path, ["-ilc"])
+        case "fish": return (path, ["-l", "-c"])
+        default: return (path, ["-lc"])
+        }
+    }
+
+    /// Runs under the user's own login shell so their config applies, whatever shell that is.
+    /// Extra tool dirs go in the environment rather than an `export` line, since that syntax isn't
+    /// portable (fish would reject it) and every shell inherits and extends PATH from its parent.
     @discardableResult
     static func shell(_ script: String) async throws -> String {
         try await Task.detached {
+            let sh = loginShell
             let p = Process()
-            p.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            p.arguments = ["-ilc", "export PATH=\"\(extraPath):$PATH\"; " + script]
+            p.executableURL = URL(fileURLWithPath: sh.path)
+            p.arguments = sh.args + [script]
             var env = ProcessInfo.processInfo.environment
+            env["PATH"] = extraPath + ":" + (env["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin")
             env["TERM"] = "dumb"   // keep prompt frameworks quiet in a non-tty shell
-            p.environment = env
             let out = Pipe(); p.standardOutput = out; p.standardError = out
             try p.run()
             let data = out.fileHandleForReading.readDataToEndOfFile()
