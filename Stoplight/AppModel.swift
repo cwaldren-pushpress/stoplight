@@ -341,7 +341,9 @@ final class AppModel {
             "counts": ["mine": mine.count, "watched": watched.count, "followed": followed.reduce(0) { $0 + $1.prs.count },
                        "inbound": inbound.reduce(0) { $0 + $1.prs.count }, "branches": branches.count, "merged": merged.count, "all": all.count],
             "queries": ["follow": prefs.followQueries.count, "branches": prefs.sources.followBranches, "mergedDays": prefs.mergedDays],
-            "agent": ["configured": prefs.agent, "installed": installedAgents.map(\.rawValue).sorted(), "repos": prefs.repoPaths.count],
+            "agent": ["configured": prefs.agent, "installed": installedAgents.map(\.rawValue).sorted(), "repos": prefs.repoPaths.count,
+                      "args": agentConfig?.extraArgs ?? "", "needsAttention": agentNeedsAttention,
+                      "sessions": agentStatus.map { "\($0.key.suffix(8))=\($0.value.state)" }.sorted()],
             "rateLimitRemaining": GitHubProvider.lastRateLimit?.remaining ?? -1,
         ]
     }
