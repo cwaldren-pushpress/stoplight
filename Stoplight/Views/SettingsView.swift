@@ -38,16 +38,21 @@ private struct GeneralTab: View {
                 default:
                     Text("Not signed in").foregroundStyle(.secondary)
                 }
+                // Field on its own row so a long path never fights the label or the button.
                 LabeledContent("GitHub CLI") {
-                    HStack(spacing: 8) {
-                        TextField(TokenSource.ghPath() ?? "gh not found", text: $prefs.ghPath)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(.callout, design: .monospaced))
-                            .onSubmit { reauth() }
-                        Button("Choose…") { chooseGH() }
-                    }
+                    TextField("Automatic", text: $prefs.ghPath)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(.callout, design: .monospaced))
+                        .onSubmit { reauth() }
                 }
-                Text("Found automatically when it's on your shell's PATH. Set it when gh lives somewhere unusual, like /opt/zerobrew/bin/gh. Return or Choose signs in again.")
+                HStack {
+                    Text("Using \(TokenSource.ghPath() ?? "nothing, gh wasn't found")")
+                        .font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.middle)
+                    Spacer()
+                    Button("Choose…") { chooseGH() }.controlSize(.small)
+                }
+                Text("Leave it empty to find gh on your shell's PATH. Set it when gh lives somewhere unusual, like /opt/zerobrew/bin/gh.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Notifications") {
