@@ -45,6 +45,12 @@ enum AgentLauncher {
             }
         }
 
+        /// Default permission id per job: fixing asks, reviewing plans (it shouldn't be editing).
+        func defaultPermission(for job: Job) -> String {
+            guard !permissionModes.isEmpty else { return "ask" }
+            return job == .review ? "plan" : "ask"
+        }
+
         /// Permission choices this agent understands. Empty means "no picker, use Extra arguments".
         var permissionModes: [(id: String, title: String, flags: String)] {
             switch self {
@@ -163,12 +169,22 @@ enum AgentLauncher {
         let promptTemplate: String
         let reviewTemplate: String
         let repoPaths: [String: String]
-        /// Permission flags plus anything the user typed, already joined.
+        /// Permission flags per job: fixing may edit, reviewing usually shouldn't (US-036).
+        let fixFlags: String
+        let reviewFlags: String
+        /// Anything the user typed; applies to both jobs.
         let extraArgs: String
+
+        func args(for job: Job) -> String {
+            [job == .review ? reviewFlags : fixFlags, extraArgs]
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+        }
     }
 
     /// What the agent is asked to do in the worktree (US-033). (Not `Task`: that shadows Swift concurrency.)
-    enum Job { case fix, review }
+    enum Job: Hashable { case fix, review }
 
     static let defaultReviewPrompt = """
     Adversarially review PR #{number} "{title}" in {repo} (branch {branch} into {base}).
@@ -274,7 +290,7 @@ enum AgentLauncher {
             } else {
                 p += "\n\nWhen you need my input, run: open '\(callbackURL("attention", pr: pr))'. When you're done, run: open '\(callbackURL("done", pr: pr))'."
             }
-            command += " && " + config.agent.command(prompt: shq(p), custom: config.customCommand, args: config.extraArgs)
+            command += " && " + config.agent.command(prompt: shq(p), custom: config.customCommand, args: config.args(for: task))
         }
         try await openTerminal(config.terminal, command: command, directory: path)
         log.notice("launched \(config.agent.rawValue, privacy: .public) (\(String(describing: task), privacy: .public)) in \(path, privacy: .public)")

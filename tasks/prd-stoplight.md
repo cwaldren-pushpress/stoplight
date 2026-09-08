@@ -394,7 +394,7 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 **Acceptance Criteria:**
 - [ ] `stoplight://agent/<working|attention|done>/<PR id>` updates a per-PR agent badge (sparkles + "agent working" / "needs you" in orange / "agent done" in green); click dismisses
 - [ ] "attention" and "done" post notifications; attention is time-sensitive with sound, and the menu bar dots gain a small orange marker while any agent waits
-- [ ] Settings → Agent: a Permissions picker (Claude Code: ask / auto-accept edits / plan only / bypass) plus a free-text Extra arguments field, both passed to the agent's command
+- [ ] Settings → Agent: separate permission pickers for fixing (default ask) and reviewing (default plan, since review shouldn't edit), plus a free-text Extra arguments field applied to both; all passed to the agent's command
 - [ ] Repeat clicks within 10s don't stack sessions in one worktree
 - [ ] Claude Code: a `.claude/settings.local.json` is written into the worktree with Stop → done and Notification → attention hooks (and excluded from git); the user's global config is untouched
 - [ ] Other agents: the prompt ends with the two `open stoplight://…` commands to run when they need input or finish

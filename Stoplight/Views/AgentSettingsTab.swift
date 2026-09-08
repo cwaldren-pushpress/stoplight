@@ -24,7 +24,10 @@ struct AgentSettingsTab: View {
                         .font(.system(.body, design: .monospaced))
                 }
                 if let agent = AgentLauncher.Agent(rawValue: prefs.agent), !agent.permissionModes.isEmpty {
-                    Picker("Permissions", selection: $prefs.agentPermissionMode) {
+                    Picker("Permissions when fixing", selection: $prefs.agentPermissionMode) {
+                        ForEach(agent.permissionModes, id: \.id) { Text($0.title).tag($0.id) }
+                    }
+                    Picker("Permissions when reviewing", selection: $prefs.agentReviewPermissionMode) {
                         ForEach(agent.permissionModes, id: \.id) { Text($0.title).tag($0.id) }
                     }
                 }
@@ -36,7 +39,7 @@ struct AgentSettingsTab: View {
                             .selectionDisabled(!t.isInstalled)
                     }
                 }
-                Text("Permissions and extra arguments are passed to the agent's command as-is. With anything other than \"Ask every time\", the agent won't stop for approval, so you won't get a \"needs you\" notification.\n\nRow buttons hand a PR to this agent: Stoplight checks out the branch in a new worktree, opens your terminal there, and starts the agent with a prompt. Fix uses the failure; Adversarial review asks for findings. On a red followed branch (main is broken), Fix forks a fresh branch off it and asks for a PR. Your main checkout is never touched.")
+                Text("Fixing edits code, so it defaults to asking. Reviewing only reports findings, so it defaults to plan mode and can't change anything. Extra arguments apply to both. With anything other than \"Ask every time\", the agent won't stop for approval, so you won't get a \"needs you\" notification.\n\nRow buttons hand a PR to this agent: Stoplight checks out the branch in a new worktree, opens your terminal there, and starts the agent with a prompt. Fix uses the failure; Adversarial review asks for findings. On a red followed branch (main is broken), Fix forks a fresh branch off it and asks for a PR. Your main checkout is never touched.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Fix prompt") {

@@ -100,6 +100,7 @@ final class UserPrefs {
         static let agent = "agent"
         static let agentCustom = "agentCustomCommand"
         static let agentPermission = "agentPermissionMode"
+        static let agentReviewPermission = "agentReviewPermissionMode"
         static let agentExtraArgs = "agentExtraArgs"
         static let terminal = "terminal"
         static let promptTemplate = "agentPrompt"
@@ -121,8 +122,9 @@ final class UserPrefs {
     // Agent launcher (US-025). Local only.
     var agent: String { didSet { defaults.set(agent, forKey: Key.agent) } }
     var agentCustomCommand: String { didSet { defaults.set(agentCustomCommand, forKey: Key.agentCustom) } }
-    /// Id from the agent's `permissionModes`; "ask" (or an unknown id) means no flag.
+    /// Ids from the agent's `permissionModes`; an unknown id means no flag. One per job (US-036).
     var agentPermissionMode: String { didSet { defaults.set(agentPermissionMode, forKey: Key.agentPermission) } }
+    var agentReviewPermissionMode: String { didSet { defaults.set(agentReviewPermissionMode, forKey: Key.agentReviewPermission) } }
     var agentExtraArgs: String { didSet { defaults.set(agentExtraArgs, forKey: Key.agentExtraArgs) } }
     var terminal: String { didSet { defaults.set(terminal, forKey: Key.terminal) } }
     var promptTemplate: String { didSet { defaults.set(promptTemplate, forKey: Key.promptTemplate) } }
@@ -198,6 +200,8 @@ final class UserPrefs {
         agent = defaults.string(forKey: Key.agent) ?? ""
         agentCustomCommand = defaults.string(forKey: Key.agentCustom) ?? "my-agent {prompt}"
         agentPermissionMode = defaults.string(forKey: Key.agentPermission) ?? "ask"
+        // Review defaults to plan: the review prompt asks for findings, not edits.
+        agentReviewPermissionMode = defaults.string(forKey: Key.agentReviewPermission) ?? "plan"
         agentExtraArgs = defaults.string(forKey: Key.agentExtraArgs) ?? ""
         terminal = defaults.string(forKey: Key.terminal) ?? "terminal"
         promptTemplate = defaults.string(forKey: Key.promptTemplate) ?? AgentLauncher.defaultPrompt

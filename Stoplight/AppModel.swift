@@ -342,7 +342,8 @@ final class AppModel {
                        "inbound": inbound.reduce(0) { $0 + $1.prs.count }, "branches": branches.count, "merged": merged.count, "all": all.count],
             "queries": ["follow": prefs.followQueries.count, "branches": prefs.sources.followBranches, "mergedDays": prefs.mergedDays],
             "agent": ["configured": prefs.agent, "installed": installedAgents.map(\.rawValue).sorted(), "repos": prefs.repoPaths.count,
-                      "args": agentConfig?.extraArgs ?? "", "needsAttention": agentNeedsAttention,
+                      "fixArgs": agentConfig?.args(for: .fix) ?? "", "reviewArgs": agentConfig?.args(for: .review) ?? "",
+                      "needsAttention": agentNeedsAttention,
                       "sessions": agentStatus.map { "\($0.key.suffix(8))=\($0.value.state)" }.sorted()],
             "rateLimitRemaining": GitHubProvider.lastRateLimit?.remaining ?? -1,
         ]
@@ -566,11 +567,12 @@ final class AppModel {
     var agentConfig: AgentLauncher.Config? {
         guard let agent = AgentLauncher.Agent(rawValue: prefs.agent),
               let terminal = AgentLauncher.Terminal(rawValue: prefs.terminal) else { return nil }
-        let permission = agent.permissionModes.first { $0.id == prefs.agentPermissionMode }?.flags ?? ""
-        let args = [permission, prefs.agentExtraArgs].filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.joined(separator: " ")
+        func flags(_ id: String) -> String { agent.permissionModes.first { $0.id == id }?.flags ?? "" }
         return AgentLauncher.Config(agent: agent, customCommand: prefs.agentCustomCommand, terminal: terminal,
                                     promptTemplate: prefs.promptTemplate, reviewTemplate: prefs.reviewTemplate,
-                                    repoPaths: prefs.repoPaths, extraArgs: args)
+                                    repoPaths: prefs.repoPaths,
+                                    fixFlags: flags(prefs.agentPermissionMode), reviewFlags: flags(prefs.agentReviewPermissionMode),
+                                    extraArgs: prefs.agentExtraArgs)
     }
     var agentTitle: String { AgentLauncher.Agent(rawValue: prefs.agent)?.title ?? "agent" }
     /// Observable so the Settings picker relabels when detection finishes.
