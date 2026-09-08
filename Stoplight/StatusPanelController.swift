@@ -117,6 +117,9 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
         let pin = menu.addItem(withTitle: "Pin Panel Open", action: #selector(togglePin), keyEquivalent: "")
         pin.target = self
         pin.state = model.pinnedPanel ? .on : .off
+        let home = menu.addItem(withTitle: "Bring Panel to the Menu Bar", action: #selector(bringHome), keyEquivalent: "")
+        home.target = self
+        home.isEnabled = panel?.isVisible == true
         menu.addItem(withTitle: "Reset Panel Position and Size", action: #selector(resetPanel), keyEquivalent: "").target = self
         menu.addItem(.separator())
         let login = menu.addItem(withTitle: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")
@@ -190,7 +193,37 @@ final class StatusPanelController: NSObject, NSWindowDelegate {
     // MARK: Panel
 
     @objc private func toggle() {
-        if let panel, panel.isVisible { close(reason: "status item click") } else { open() }
+        guard let panel, panel.isVisible else { open(); return }
+        guard model.pinnedPanel else { close(reason: "status item click"); return }
+        // Pinned panels don't close on a click, so the click means "where did I put it?" (US-037):
+        // pull it back if it's off-screen, raise it, and pulse its edge so the eye lands on it.
+        if !NSScreen.screens.contains(where: { $0.visibleFrame.intersects(panel.frame) }) { bringHome() }
+        panel.makeKeyAndOrderFront(nil)
+        flash(panel)
+    }
+
+    /// Two quick accent pulses around the panel's edge.
+    private func flash(_ panel: NSPanel) {
+        guard let layer = (panel.contentView as? NSVisualEffectView)?.layer else { return }
+        layer.borderColor = NSColor.controlAccentColor.cgColor
+        layer.borderWidth = 0
+        let pulse = CABasicAnimation(keyPath: "borderWidth")
+        pulse.fromValue = 0
+        pulse.toValue = 3
+        pulse.duration = 0.2
+        pulse.autoreverses = true
+        pulse.repeatCount = 2
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        layer.add(pulse, forKey: "stoplight.flash")
+    }
+
+    /// Move the panel back under the dots, keeping its size and pinned state.
+    @objc private func bringHome() {
+        guard let panel else { return }
+        userMoved = false
+        position(panel)
+        panel.makeKeyAndOrderFront(nil)
+        flash(panel)
     }
 
     func open() {
