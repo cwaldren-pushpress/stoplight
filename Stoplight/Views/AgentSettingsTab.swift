@@ -11,7 +11,7 @@ struct AgentSettingsTab: View {
         @Bindable var prefs = model.prefs
         Form {
             Section("Agent") {
-                Picker("Fix failures with", selection: $prefs.agent) {
+                Picker("Coding agent", selection: $prefs.agent) {
                     Text("Off").tag("")
                     ForEach(AgentLauncher.Agent.allCases) { a in
                         let installed = model.installedAgents.contains(a)
@@ -29,7 +29,7 @@ struct AgentSettingsTab: View {
                             .selectionDisabled(!t.isInstalled)
                     }
                 }
-                Text("One click on a red PR: Stoplight checks out the branch in a new worktree, opens your terminal there, and starts the agent with the failure as its prompt. On a red followed branch (main is broken), it forks a fresh fix branch off it and asks the agent to open a PR. Your main checkout is never touched.")
+                Text("Row buttons hand a PR to this agent: Stoplight checks out the branch in a new worktree, opens your terminal there, and starts the agent with a prompt. Fix uses the failure; Adversarial review asks for findings. On a red followed branch (main is broken), Fix forks a fresh branch off it and asks for a PR. Your main checkout is never touched.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Fix prompt") {
@@ -76,7 +76,7 @@ struct AgentSettingsTab: View {
                         }
                     }
                 }
-                Text("Worktrees are created next to the clone as repo-branch. Remove them with git worktree remove when you're done.")
+                Text("A repo needs a local clone here before its PRs can be handed to the agent. Worktrees are created next to the clone as repo-branch; remove them with git worktree remove when you're done.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

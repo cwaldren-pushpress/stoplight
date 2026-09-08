@@ -691,16 +691,13 @@ struct PRRow: View {
         if pr.mergeQueue != nil, let q = URL(string: "https://github.com/\(pr.repo)/queue/\(pr.baseRefName)") {
             Button("Open merge queue") { openURL(q) }
         }
-        if !pr.headRefName.isEmpty && model.agentConfig != nil {
+        if model.canRunAgent(pr) {
             Divider()
             Button(pr.isBranch ? "Fix \(pr.headRefName) with \(model.agentTitle) (new branch)" : "Fix with \(model.agentTitle)") { model.fix(pr, runAgent: true) }
-                .disabled(!model.canFix(pr))
             if !pr.isBranch && pr.status == .open {
                 Button("Adversarial review with \(model.agentTitle)") { model.review(pr) }
-                    .disabled(!model.canFix(pr))
             }
             Button("Open worktree in terminal") { model.fix(pr, runAgent: false) }
-                .disabled(!model.canFix(pr))
         }
         Divider()
         Button("Share (rich link)") { copyRichLink() }

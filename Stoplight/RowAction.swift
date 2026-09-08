@@ -48,8 +48,8 @@ enum RowAction: String, CaseIterable, Identifiable, Codable {
         case .checks: !pr.checks.isEmpty
         case .copyBranch: !pr.headRefName.isEmpty
         case .copyHash: !pr.headSha.isEmpty
-        case .fix: pr.state == .failure && model.canFix(pr)
-        case .review: model.canFix(pr) && !pr.isBranch && pr.status == .open
+        case .fix: pr.state == .failure && model.canRunAgent(pr)
+        case .review: model.canRunAgent(pr) && !pr.isBranch && pr.status == .open
         }
     }
 }

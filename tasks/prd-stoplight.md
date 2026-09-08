@@ -302,8 +302,8 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 **Description:** As a user, I want one button on a red PR that puts my coding agent to work on the failure.
 
 **Acceptance Criteria:**
-- [ ] Settings → Agent: agent picker (Claude Code, Codex, Gemini CLI, Aider, Custom command with `{prompt}`), detected via a login shell; terminal picker (Terminal, iTerm2, Ghostty, Warp), detected by bundle; editable prompt template with `{number} {title} {repo} {branch} {url} {failing_checks} {check_urls} {description}`; repo scan folder mapping `owner/name` → clone path via origin remotes
-- [ ] Expanded red row shows an orange wrench button when an agent is set and the repo has a clone; right-click has "Fix with <agent>" and "Open worktree in terminal"
+- [ ] Settings → Agent: "Coding agent" picker (Claude Code, Codex, Gemini CLI, Aider, Custom command with `{prompt}`), detected via a login shell; terminal picker (Terminal, iTerm2, Ghostty, Warp), detected by bundle; editable prompt template with `{number} {title} {repo} {branch} {url} {failing_checks} {check_urls} {description}`; repo scan folder mapping `owner/name` → clone path via origin remotes
+- [ ] Expanded red row shows the Fix button whenever an agent is set; a missing local clone surfaces as an inline error naming Settings → Agent → Repos rather than hiding the button; right-click has "Fix with <agent>" and "Open worktree in terminal"
 - [ ] Fix: `git fetch origin <branch>`, worktree at `<clone>/../<repo>-<branch>` (reused if present), terminal opened there, agent started with the filled prompt
 - [ ] Main checkout is never modified; errors surface inline in the expansion
 - [ ] Warp gets the folder opened and the command on the clipboard (no scripting API)

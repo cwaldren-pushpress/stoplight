@@ -159,8 +159,8 @@ final class AppModel {
         case .copyBranch: if let pr = selectedPR { PRActions.copyBranch(pr) } else { return false }
         case .copyHash: if let pr = selectedPR { PRActions.copyHash(pr) } else { return false }
         case .pin: if let pr = selectedPR { togglePin(pr) } else { return false }
-        case .fix: if let pr = selectedPR, canFix(pr) { fix(pr, runAgent: true) } else { return false }
-        case .review: if let pr = selectedPR, canFix(pr), !pr.isBranch { review(pr) } else { return false }
+        case .fix: if let pr = selectedPR, canRunAgent(pr) { fix(pr, runAgent: true) } else { return false }
+        case .review: if let pr = selectedPR, canRunAgent(pr), !pr.isBranch { review(pr) } else { return false }
         case .hide: if let pr = selectedPR { hide(pr: pr) } else { return false }
         case .checks:
             guard let pr = selectedPR, !pr.checks.isEmpty else { return false }
@@ -568,9 +568,10 @@ final class AppModel {
     /// Observable so the Settings picker relabels when detection finishes.
     private(set) var installedAgents: Set<AgentLauncher.Agent> = []
     func detectAgents() async { installedAgents = await AgentLauncher.detectAgents() }
-    func canFix(_ pr: PullRequest) -> Bool {
-        agentConfig != nil && prefs.repoPaths[pr.repo.lowercased()] != nil && !pr.headRefName.isEmpty
-    }
+    /// Enough to offer the button. A missing local clone is reported when it runs, so the reason is visible
+    /// instead of the button silently not existing.
+    func canRunAgent(_ pr: PullRequest) -> Bool { agentConfig != nil && !pr.headRefName.isEmpty }
+    func hasClone(_ pr: PullRequest) -> Bool { prefs.repoPaths[pr.repo.lowercased()] != nil }
     private(set) var agentError: String?
 
     /// What each launched agent last reported (US-034). Session-only.

@@ -1,4 +1,7 @@
 import Foundation
+import OSLog
+
+private let log = Logger(subsystem: "com.timwheeler.stoplight", category: "GitHub")
 
 public struct GitHubProvider: CIProvider {
     public enum Error: Swift.Error, LocalizedError {
@@ -101,30 +104,52 @@ public struct GitHubProvider: CIProvider {
     }
 
     public func resolveBranchPatterns(_ patterns: [BranchRef]) async throws -> [String: String] {
-        let pats = patterns.filter(\.isPattern)
-        guard !pats.isEmpty else { return [:] }
-        let fields = pats.enumerated().compactMap { i, r -> String? in
-            let parts = r.repo.split(separator: "/", maxSplits: 1).map(String.init)
-            guard parts.count == 2, Filters.isValidRepo(r.repo) else { return nil }
-            // `query` is a substring filter and GitHub won't order branches by commit date, so fetch dates and sort here.
-            return "p\(i): repository(owner: \"\(parts[0])\", name: \"\(parts[1])\") { refs(refPrefix: \"refs/heads/\", query: \"\(r.patternPrefix)\", first: 100) { nodes { name target { ... on Commit { committedDate } } } } }"
-        }
-        let data = try await post(["query": "query {\n" + fields.joined(separator: "\n") + "\n}"])
-        struct T: Decodable { let committedDate: Date? }
-        struct N: Decodable { let name: String; let target: T? }
-        struct Refs: Decodable { let nodes: [N] }
-        struct Repo: Decodable { let refs: Refs? }
-        struct Env: Decodable { let data: [String: Repo?]? }
-        let repos = try Self.decoder.decode(Env.self, from: data).data ?? [:]
         var out: [String: String] = [:]
-        for (i, r) in pats.enumerated() {
-            guard let nodes = repos["p\(i)"]??.refs?.nodes else { continue }
-            let hit = nodes.filter { r.matches($0.name) }
-                .sorted { ($0.target?.committedDate ?? .distantPast) > ($1.target?.committedDate ?? .distantPast) }
-                .first
-            if let hit { out[r.key] = hit.name }
+        for p in patterns.filter(\.isPattern) {
+            if let name = try await newestMatchingBranch(p) { out[p.key] = name }
         }
         return out
+    }
+
+    /// GitHub returns refs alphabetically, 100 per page, and won't order branches by commit date
+    /// (`TAG_COMMIT_DATE` is ignored for heads). Taking one page picks the alphabetically-first
+    /// branches, which for any dated naming scheme are the oldest. So: page through every ref under
+    /// the pattern's literal prefix and choose the newest commit here. No assumptions about naming.
+    private func newestMatchingBranch(_ pattern: BranchRef) async throws -> String? {
+        let parts = pattern.repo.split(separator: "/", maxSplits: 1).map(String.init)
+        guard parts.count == 2, Filters.isValidRepo(pattern.repo) else { return nil }
+        struct Target: Decodable { let committedDate: Date? }
+        struct Node: Decodable { let name: String; let target: Target? }
+        struct Info: Decodable { let hasNextPage: Bool; let endCursor: String? }
+        struct Page: Decodable { let pageInfo: Info; let nodes: [Node] }
+        struct Repo: Decodable { let refs: Page? }
+        struct Payload: Decodable { let repository: Repo? }
+        struct Env: Decodable { let data: Payload? }
+
+        var cursor: String?
+        var best: (name: String, date: Date)?
+        var scanned = 0
+        for _ in 0..<10 {   // 1000 refs is plenty; bounded so one huge repo can't stall a poll
+            let after = cursor.map { ", after: \"\($0)\"" } ?? ""
+            let q = """
+            query { repository(owner: "\(parts[0])", name: "\(parts[1])") {
+              refs(refPrefix: "refs/heads/", query: "\(pattern.patternPrefix)", first: 100\(after)) {
+                pageInfo { hasNextPage endCursor }
+                nodes { name target { ... on Commit { committedDate } } }
+              } } }
+            """
+            let data = try await post(["query": q])
+            guard let page = try Self.decoder.decode(Env.self, from: data).data?.repository?.refs else { break }
+            scanned += page.nodes.count
+            for n in page.nodes where pattern.matches(n.name) {
+                let d = n.target?.committedDate ?? .distantPast
+                if let b = best { if d > b.date { best = (n.name, d) } } else { best = (n.name, d) }
+            }
+            guard page.pageInfo.hasNextPage, let end = page.pageInfo.endCursor else { break }
+            cursor = end
+        }
+        log.notice("pattern \(pattern.spec, privacy: .public): scanned \(scanned) refs, newest = \(best?.name ?? "none", privacy: .public)")
+        return best?.name
     }
 
     /// Validate the token and return the login (US-001).

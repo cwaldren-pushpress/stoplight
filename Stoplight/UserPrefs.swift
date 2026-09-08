@@ -94,6 +94,7 @@ final class UserPrefs {
         static let sectionOrder = "sectionOrder"
         static let tourSeen = "tourSeen"
         static let rowActions = "rowActions"
+        static let rowActionsSeen = "rowActionsSeen"
         static let sectionCounts = "sectionCounts"
         static let agent = "agent"
         static let agentCustom = "agentCustomCommand"
@@ -173,7 +174,17 @@ final class UserPrefs {
         mergedDays = defaults.object(forKey: Key.mergedDays) == nil ? 1 : defaults.integer(forKey: Key.mergedDays)
         sectionOrder = defaults.stringArray(forKey: Key.sectionOrder) ?? []
         tourSeen = defaults.bool(forKey: Key.tourSeen)
-        rowActions = (defaults.stringArray(forKey: Key.rowActions)?.compactMap(RowAction.init(rawValue:))) ?? RowAction.defaultOrder
+        // Buttons added in a later version join an existing config once, so an upgrade never hides a new
+        // action; ones the user actually unchecked stay off because they were already "seen".
+        if var saved = defaults.stringArray(forKey: Key.rowActions)?.compactMap(RowAction.init(rawValue:)) {
+            let seen = Set(defaults.stringArray(forKey: Key.rowActionsSeen) ?? [])
+            saved += RowAction.defaultOrder.filter { !seen.contains($0.rawValue) && !saved.contains($0) }
+            rowActions = saved
+            defaults.set(saved.map(\.rawValue), forKey: Key.rowActions)
+        } else {
+            rowActions = RowAction.defaultOrder
+        }
+        defaults.set(RowAction.allCases.map(\.rawValue), forKey: Key.rowActionsSeen)
         sectionCounts = SectionCounts(rawValue: defaults.string(forKey: Key.sectionCounts) ?? "") ?? .off
         agent = defaults.string(forKey: Key.agent) ?? ""
         agentCustomCommand = defaults.string(forKey: Key.agentCustom) ?? "my-agent {prompt}"
