@@ -38,10 +38,16 @@ private struct GeneralTab: View {
                 default:
                     Text("Not signed in").foregroundStyle(.secondary)
                 }
-                TextField("GitHub CLI path", text: $prefs.ghPath, prompt: Text(TokenSource.ghPath() ?? "gh not found"))
-                    .font(.system(.body, design: .monospaced))
-                    .onSubmit { Task { await model.signIn(); await model.refresh() } }
-                Text("Leave empty to find gh automatically. Set it when gh lives somewhere unusual, like /opt/zerobrew/bin/gh. Press Return to sign in again.")
+                LabeledContent("GitHub CLI") {
+                    HStack(spacing: 8) {
+                        TextField(TokenSource.ghPath() ?? "gh not found", text: $prefs.ghPath)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.callout, design: .monospaced))
+                            .onSubmit { reauth() }
+                        Button("Choose…") { chooseGH() }
+                    }
+                }
+                Text("Found automatically when it's on your shell's PATH. Set it when gh lives somewhere unusual, like /opt/zerobrew/bin/gh. Return or Choose signs in again.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Notifications") {
@@ -144,6 +150,23 @@ private struct LegendRow<Icon: View>: View {
 }
 
 private extension GeneralTab {
+    func reauth() { Task { await model.signIn(); await model.refresh() } }
+
+    /// Pick the gh binary. Unsandboxed, so /opt and /usr/local are reachable.
+    func chooseGH() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.showsHiddenFiles = true
+        panel.treatsFilePackagesAsDirectories = true
+        panel.message = "Choose the gh executable"
+        panel.directoryURL = URL(fileURLWithPath: (TokenSource.ghPath() as NSString?)?.deletingLastPathComponent ?? "/opt")
+        if panel.runModal() == .OK, let url = panel.url {
+            model.prefs.ghPath = url.path
+            reauth()
+        }
+    }
+
     @ViewBuilder
     var updateControl: some View {
         let u = model.updater
