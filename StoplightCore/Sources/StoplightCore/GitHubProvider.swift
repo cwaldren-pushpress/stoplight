@@ -74,13 +74,14 @@ public struct GitHubProvider: CIProvider {
         return out
     }
 
-    public func fetchBranchStatuses(_ refs: [BranchRef]) async throws -> [String: BranchStatus] {
+    public func fetchBranchStatuses(_ refs: [BranchRef], commits: Int) async throws -> [String: [BranchStatus]] {
         guard !refs.isEmpty else { return [:] }
+        // Look past commits that never triggered CI (docs-only, no-op merges) without unbounded history.
+        let lookback = min(60, max(10, commits * 5))
         let fields = refs.enumerated().compactMap { i, r -> String? in
             let parts = r.repo.split(separator: "/", maxSplits: 1).map(String.init)
             guard parts.count == 2, Filters.isValidRepo(r.repo), Filters.isValidBranch(r.branch) else { return nil }
-            // Look back a few commits: the newest one may not have triggered CI (docs, merges of no-op branches).
-            return "b\(i): repository(owner: \"\(parts[0])\", name: \"\(parts[1])\") { ref(qualifiedName: \"refs/heads/\(r.branch)\") { target { ... on Commit { history(first: 10) { nodes { oid messageHeadline url committedDate ...CommitChecks } } } } } }"
+            return "b\(i): repository(owner: \"\(parts[0])\", name: \"\(parts[1])\") { ref(qualifiedName: \"refs/heads/\(r.branch)\") { target { ... on Commit { history(first: \(lookback)) { nodes { oid messageHeadline url committedDate ...CommitChecks } } } } } }"
         }
         guard !fields.isEmpty else { return [:] }
         let query = "query {\n" + fields.joined(separator: "\n") + "\n}\n" + Self.commitChecksFragment
@@ -92,13 +93,15 @@ public struct GitHubProvider: CIProvider {
         struct Repo: Decodable { let ref: Ref? }
         struct Env: Decodable { let data: [String: Repo?]? }
         let repos = try Self.decoder.decode(Env.self, from: data).data ?? [:]
-        var out: [String: BranchStatus] = [:]
+        var out: [String: [BranchStatus]] = [:]
         for (i, r) in refs.enumerated() {
-            guard let commits = repos["b\(i)"]??.ref?.target?.history?.nodes, let head = commits.first else { continue }
-            let withChecks = commits.first { !($0.statusCheckRollup?.contexts.nodes.isEmpty ?? true) } ?? head
-            let checks = (withChecks.statusCheckRollup?.contexts.nodes ?? []).compactMap(Self.mapCheck)
-            out[r.key] = BranchStatus(ref: r, sha: withChecks.oid, message: withChecks.messageHeadline, url: withChecks.url,
-                                      committedAt: withChecks.committedDate, checks: checks)
+            guard let history = repos["b\(i)"]??.ref?.target?.history?.nodes, let head = history.first else { continue }
+            func status(_ c: C) -> BranchStatus {
+                BranchStatus(ref: r, sha: c.oid, message: c.messageHeadline, url: c.url,
+                             committedAt: c.committedDate, checks: (c.statusCheckRollup?.contexts.nodes ?? []).compactMap(Self.mapCheck))
+            }
+            let withChecks = history.filter { !($0.statusCheckRollup?.contexts.nodes.isEmpty ?? true) }
+            out[r.key] = withChecks.isEmpty ? [status(head)] : withChecks.prefix(max(1, commits)).map(status)
         }
         return out
     }

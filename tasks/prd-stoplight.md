@@ -345,7 +345,7 @@ App name: **Stoplight**. The menu bar glyph is three horizontal dots, red / yell
 
 **Acceptance Criteria:**
 - [ ] Settings → Sources → Follow → Branches accepts `owner/repo@branch`
-- [ ] Each followed branch is one row in a "Branches" section: dot = state of the newest commit that ran checks, title = that commit's message, click opens the commit, run-summary button when it's Actions
+- [ ] Each followed branch shows its most recent commits (Settings → Sources → "Commits shown per branch", default 1, max 10) in a "Branches" section; commits that ran no checks are skipped, and the newest row keeps a stable id so notifications still fire. Each row: dot = state of the newest commit that ran checks, title = that commit's message, click opens the commit, run-summary button when it's Actions
 - [ ] Branch rows count toward the dots and widget and notify like open PRs (red → "failed", pending → green → "passed")
 - [ ] Right-click → Stop following; no Follow-author or Hide-PR on branch rows
 - [ ] Fix on a red branch row forks `fix/<branch>-ci-<sha7>` off the branch in a worktree and prompts the agent to fix and open a PR against it

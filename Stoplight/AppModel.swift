@@ -430,19 +430,22 @@ final class AppModel {
             // One branch request covers both: followed branches (US-029) and the base branches behind merges (US-028).
             let baseRefs = freshMerged.filter { !$0.baseRefName.isEmpty }.map { BranchRef(repo: $0.repo, branch: $0.baseRefName) }
             let wanted = Array(Set(concreteBranches + baseRefs))
-            let statuses = wanted.isEmpty ? [:] : ((try? await provider.fetchBranchStatuses(wanted)) ?? [:])
-            branches = prefs.followedBranches.compactMap { b -> PullRequest? in
+            let statuses = wanted.isEmpty ? [:] : ((try? await provider.fetchBranchStatuses(wanted, commits: prefs.branchCommits)) ?? [:])
+            branches = prefs.followedBranches.flatMap { b -> [PullRequest] in
                 let concrete = b.isPattern ? resolvedNow[b.key].map(b.resolved(to:)) : b
-                guard let c = concrete, let st = statuses[c.key] else { return nil }
-                let row = st.asRow
-                // Pattern rows say which pattern found them.
-                return b.isPattern ? PullRequest(id: row.id, repo: row.repo, number: 0, title: row.title, url: row.url, isDraft: false,
-                                                 updatedAt: row.updatedAt, headSha: row.headSha, checks: row.checks, status: .open,
-                                                 headRefName: row.headRefName, note: b.branch) : row
+                guard let c = concrete, let list = statuses[c.key] else { return [] }
+                return list.enumerated().map { i, st in
+                    let row = st.asRow(index: i)
+                    // Pattern rows say which pattern found them.
+                    guard b.isPattern else { return row }
+                    return PullRequest(id: row.id, repo: row.repo, number: 0, title: row.title, url: row.url, isDraft: false,
+                                       updatedAt: row.updatedAt, headSha: row.headSha, checks: row.checks, status: .open,
+                                       headRefName: row.headRefName, note: b.branch)
+                }
             }
             // Badge each merged PR with how its base branch is doing right now.
             freshMerged = freshMerged.map { pr in
-                guard let head = statuses[BranchRef(repo: pr.repo, branch: pr.baseRefName).key], !head.checks.isEmpty else { return pr }
+                guard let head = statuses[BranchRef(repo: pr.repo, branch: pr.baseRefName).key]?.first, !head.checks.isEmpty else { return pr }
                 return pr.withBaseState(head.state)
             }
             merged = freshMerged

@@ -272,8 +272,9 @@ public protocol CIProvider: Sendable {
     func fetchPullRequests(refs: [PRRef]) async throws -> [PullRequest]
     /// US-013. login → profile display name. Logins without a name are omitted.
     func fetchDisplayNames(logins: [String]) async throws -> [String: String]
-    /// US-028/029. Latest commit with checks on each branch (falls back to the head), keyed by `BranchRef.key`.
-    func fetchBranchStatuses(_ refs: [BranchRef]) async throws -> [String: BranchStatus]
+    /// US-028/029/035. Up to `commits` recent commits per branch, newest first, keyed by `BranchRef.key`.
+    /// Commits that ran no checks are skipped; if none did, the head is returned so the branch still shows.
+    func fetchBranchStatuses(_ refs: [BranchRef], commits: Int) async throws -> [String: [BranchStatus]]
     /// US-030. For each pattern, the matching branch with the newest commit, keyed by the pattern's `key`. Unmatched patterns are omitted.
     func resolveBranchPatterns(_ patterns: [BranchRef]) async throws -> [String: String]
 }
@@ -327,8 +328,11 @@ public struct BranchStatus: Sendable, Equatable {
     public var state: CIState { Rollup.state(for: checks) }
 
     /// Rendered through the same row as PRs. `number == 0` marks a branch row.
-    public var asRow: PullRequest {
-        PullRequest(id: "branch:\(ref.key)", repo: ref.repo, number: 0, title: message, url: url, isDraft: false,
+    /// The newest commit keeps a stable id per branch so state changes on it still fire notifications;
+    /// older commits are addressed by sha (US-035).
+    public func asRow(index: Int = 0) -> PullRequest {
+        PullRequest(id: index == 0 ? "branch:\(ref.key)" : "branch:\(ref.key)@\(sha)",
+                    repo: ref.repo, number: 0, title: message, url: url, isDraft: false,
                     updatedAt: committedAt, headSha: sha, checks: checks, author: "", status: .open,
                     headRefName: ref.branch, baseRefName: "")
     }

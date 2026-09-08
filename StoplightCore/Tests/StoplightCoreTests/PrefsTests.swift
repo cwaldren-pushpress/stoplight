@@ -39,10 +39,13 @@ final class PrefsTests: XCTestCase {
         XCTAssertEqual(BranchRef(spec: "acme/api@release/2.0")?.branch, "release/2.0")
         XCTAssertNil(BranchRef(spec: "acme/api"))
         XCTAssertNil(BranchRef(spec: "acme/api@bad..ref"))
-        let row = BranchStatus(ref: BranchRef(spec: "acme/api@main")!, sha: "abc", message: "Fix", url: URL(string: "https://github.com/acme/api/commit/abc")!,
-                               committedAt: .now, checks: []).asRow
-        XCTAssertTrue(row.isBranch)
-        XCTAssertEqual(row.shortRef, "acme/api @ main")
+        let st = BranchStatus(ref: BranchRef(spec: "acme/api@main")!, sha: "abc", message: "Fix", url: URL(string: "https://github.com/acme/api/commit/abc")!,
+                              committedAt: .now, checks: [])
+        XCTAssertTrue(st.asRow().isBranch)
+        XCTAssertEqual(st.asRow().shortRef, "acme/api @ main")
+        // Newest row keeps a stable id (so notifications still fire); older commits are per-sha.
+        XCTAssertEqual(st.asRow(index: 0).id, "branch:acme/api#main")
+        XCTAssertEqual(st.asRow(index: 1).id, "branch:acme/api#main@abc")
     }
 
     func testBranchPatterns() {

@@ -222,7 +222,9 @@ private struct SourcesTab: View {
                             normalize: { UserPrefs.normalize($0, kind: .orgs, hideList: false) }, onChange: model.sourcesChanged)
                 TableEditor(title: "Branches", items: $prefs.sources.followBranches, placeholder: "owner/repo@main  or  owner/repo@rc/*",
                             normalize: { UserPrefs.normalize($0, kind: .branches, hideList: false) }, onChange: model.sourcesChanged)
-                Text("Every open PR from a followed user, repo, or org gets its own section. A followed branch shows the latest CI verdict on that branch (is main green?) and notifies when it goes red. A pattern like rc/* follows whichever matching branch has the newest commit, adds a section of PRs targeting it, and tells you when a new one is cut.")
+                Stepper("Commits shown per branch: \(prefs.branchCommits)", value: $prefs.branchCommits, in: 1...10)
+                    .onChange(of: prefs.branchCommits) { _, _ in model.sourcesChanged() }
+                Text("Every open PR from a followed user, repo, or org gets its own section. A followed branch shows its latest CI verdict (is main green?) and notifies when it goes red; raise the commit count to see the last few commits and which one broke it. A pattern like rc/* follows whichever matching branch has the newest commit, adds a section of PRs targeting it, and tells you when a new one is cut.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Hide") {
